@@ -37,7 +37,7 @@
     }
     #uploadBtn {
       position: absolute;
-      top: 80px;
+      top: 200px;
       left: 10px;
       background: white;
       padding: 5px 10px;
@@ -103,7 +103,7 @@
     .map-title {
   position: absolute;
   top: 10px;
-  left: 50%;
+  left: 24%;
   transform: translateX(-50%);
   background: rgba(255, 255, 255, 0.9);
   padding: 8px 16px;
@@ -114,6 +114,11 @@
   box-shadow: 0 0 6px rgba(0, 0, 0, 0.3);
   z-index: 2000;
   text-align: center;
+}
+    .leaflet-control-zoom {
+  position: absolute !important;
+  top: 130px !important;  /* Ajuste para alinhar como o upload */
+  left: 10px !important;
 }
   </style>
 </head>
