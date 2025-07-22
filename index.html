@@ -91,9 +91,9 @@
     #listaMunicipios div:hover { background-color: #ddd; }
     #coords {
       position: absolute;
-      bottom: 50px; /* subiu para não ficar na mesma altura da escala */
+      bottom: 50px;
       left: 10px;
-      background: rgba(255, 255, 255, 0.5); /* fundo branco semi-transparente */
+      background: rgba(255, 255, 255, 0.5);
       padding: 5px 8px;
       font-size: 13px;
       border-radius: 4px;
@@ -130,11 +130,9 @@
 
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script src="https://unpkg.com/leaflet-ajax/dist/leaflet.ajax.min.js"></script>
-  <!-- JSZip para ler KMZ -->
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/tokml@0.4.0/tokml.js"></script> <!-- Você usa tokml, então inclua -->
-  <!-- leaflet-omnivore para ler KML/KMZ em Leaflet -->  <!-- <-- ADIÇÃO -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet-omnivore/0.3.4/leaflet-omnivore.min.js"></script> <!-- <-- ADIÇÃO -->
+  <script src="https://cdn.jsdelivr.net/npm/tokml@0.4.0/tokml.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/togeojson/0.16.0/togeojson.min.js"></script>
 
   <script>
     const map = L.map('map').setView([-7, -42], 7);
@@ -147,35 +145,18 @@
     };
     north.addTo(map);
 
-    // Camadas base
-    const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap contributors'
-    });
+    const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap contributors' });
+    const esriSat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles © Esri' });
+    const esriTerrain = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Terrain_Base/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles © Esri' });
+    const esriRoad = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles © Esri' });
 
-    const esriSat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-      attribution: 'Tiles © Esri'
-    });
-
-    const esriTerrain = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Terrain_Base/MapServer/tile/{z}/{y}/{x}', {
-      attribution: 'Tiles © Esri'
-    });
-
-    const esriRoad = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
-      attribution: 'Tiles © Esri'
-    });
-
-    // Define camada padrão (OpenStreetMap)
     osmLayer.addTo(map);
 
-    /* =========================
-       SEU CÓDIGO EXISTENTE PARA TERRITÓRIOS, MUNICÍPIOS, ETC...
-       ========================= */
     const territorioPalette = [
       '#1f78b4', '#e31a1c', '#33a02c', '#ff7f00',
       '#6a3d9a', '#b15928', '#a6cee3', '#b2df8a',
       '#fb9a99', '#fdbf6f'
     ];
-
     const territorioColors = [];
     let colorIndex = 0;
 
@@ -202,7 +183,6 @@
         const popupContent = generateInfoContent(feature.properties) + 
           `<button class="download-btn" style="margin-top:5px;">Baixar KML desta feição</button>`;
         layer.bindPopup(popupContent);
-
         layer.on('popupopen', () => {
           const btn = document.querySelector('.download-btn');
           if (btn) {
@@ -231,11 +211,7 @@
       };
     }
 
-    const territoriosLayer = new L.GeoJSON.AJAX("territorios.geojson", { 
-      style: styleTerritorios,
-      onEachFeature: onEachFeaturePopup
-    });
-
+    const territoriosLayer = new L.GeoJSON.AJAX("territorios.geojson", { style: styleTerritorios, onEachFeature: onEachFeaturePopup });
     territoriosLayer.on('data:loaded', addLegend);
     territoriosLayer.addTo(map);
 
@@ -254,10 +230,7 @@
     }
 
     function onEachMunicipio(feature, layer) {
-      layer.on({
-        mouseover: highlightFeature,
-        mouseout: resetHighlight
-      });
+      layer.on({ mouseover: highlightFeature, mouseout: resetHighlight });
       if (feature.properties) {
         layer.bindPopup(generateInfoContent(feature.properties) +
           `<button class="download-btn" style="margin-top:5px;">Baixar KML desta feição</button>`);
@@ -279,10 +252,7 @@
       }
     }
 
-    const municipiosLayer = new L.GeoJSON.AJAX("municipios.geojson", { 
-      style: styleMunicipios,
-      onEachFeature: onEachMunicipio
-    });
+    const municipiosLayer = new L.GeoJSON.AJAX("municipios.geojson", { style: styleMunicipios, onEachFeature: onEachMunicipio });
     municipiosLayer.addTo(map);
 
     /* ================== Busca Fuzzy =================== */
@@ -389,9 +359,6 @@
     litigioLayer.on('data:loaded', () => { litigioLayer.bringToFront(); });
     linhaImperialLayer.on('data:loaded', () => { litigioLayer.bringToFront(); });
 
-    /* ==============================
-       CONTROLE DE CAMADAS
-       ============================== */
     const baseMaps = {
       "OpenStreetMap": osmLayer,
       "Esri Satélite": esriSat,
@@ -458,7 +425,6 @@
       return { x, y, zone };
     }
 
-    /* ===== Atualiza coordenadas ===== */
     const coordsDiv = document.getElementById('coords');
     map.on('mousemove', function (e) {
       const lat = e.latlng.lat.toFixed(5);
@@ -467,58 +433,46 @@
       coordsDiv.innerHTML = `Lat: ${lat}, Lon: ${lon}<br>E: ${utm.x.toFixed(2)}, N: ${utm.y.toFixed(2)}<br>Fuso: ${utm.zone}`;
     });
 
-    /* ===== Upload de KML / KMZ ===== */  // <-- ADIÇÃO
-    const uploadBtnEl = document.getElementById('uploadBtn');     // <-- ADIÇÃO
-    const uploadInputEl = document.getElementById('uploadInput'); // <-- ADIÇÃO
+    /* ============ Upload de KML/KMZ ============ */
+    document.getElementById('uploadBtn').addEventListener('click', () => {
+      document.getElementById('uploadInput').click();
+    });
 
-    uploadBtnEl.addEventListener('click', () => {                 // <-- ADIÇÃO
-      uploadInputEl.click();
-    });                                                           // <-- ADIÇÃO
+    document.getElementById('uploadInput').addEventListener('change', (e) => {
+      const files = e.target.files;
+      if (!files.length) return;
 
-    uploadInputEl.addEventListener('change', async function(e) {  // <-- ADIÇÃO
-      const files = Array.from(e.target.files);
-      for (const file of files) {
-        const name = file.name;
-        try {
-          if (name.toLowerCase().endsWith('.kml')) {
-            const text = await file.text();
-            addKMLTextToMap(text, name);
-          } else if (name.toLowerCase().endsWith('.kmz')) {
-            const arrayBuf = await file.arrayBuffer();
-            const zip = await JSZip.loadAsync(arrayBuf);
-            let kmlEntry = null;
-            zip.forEach((relPath, zipEntry) => {
-              if (!kmlEntry && relPath.toLowerCase().endsWith('.kml')) {
-                kmlEntry = zipEntry;
+      [...files].forEach(file => {
+        const reader = new FileReader();
+        if (file.name.toLowerCase().endsWith('.kmz')) {
+          reader.onload = function(evt) {
+            JSZip.loadAsync(evt.target.result).then(zip => {
+              const kmlFile = Object.keys(zip.files).find(name => name.endsWith('.kml'));
+              if (kmlFile) {
+                zip.files[kmlFile].async('text').then(kmlText => {
+                  addKMLToMap(kmlText);
+                });
+              } else {
+                alert('KMZ não contém um arquivo KML válido!');
               }
             });
-            if (!kmlEntry) {
-              alert('KMZ sem arquivo KML interno: ' + name);
-              continue;
-            }
-            const kmlText = await kmlEntry.async('text');
-            addKMLTextToMap(kmlText, name);
-          } else {
-            alert('Formato não suportado: ' + name);
-          }
-        } catch (err) {
-          console.error(err);
-          alert('Erro ao carregar ' + name + ': ' + err.message);
+          };
+          reader.readAsArrayBuffer(file);
+        } else {
+          reader.onload = function(evt) {
+            addKMLToMap(evt.target.result);
+          };
+          reader.readAsText(file);
         }
-      }
-      // permite reenviar o mesmo arquivo depois
-      uploadInputEl.value = '';
-    });                                                           // <-- ADIÇÃO
+      });
+    });
 
-    function addKMLTextToMap(kmlText, layerName) {                // <-- ADIÇÃO
-      const kmlLayer = omnivore.kml.parse(kmlText);
-      kmlLayer.addTo(map);
-      if (layersControl) {
-        layersControl.addOverlay(kmlLayer, layerName);
-      }
-      // tenta enquadrar
-      try { map.fitBounds(kmlLayer.getBounds()); } catch(_) {}
-    }                                                             // <-- ADIÇÃO
+    function addKMLToMap(kmlText) {
+      const parser = new DOMParser();
+      const kml = parser.parseFromString(kmlText, 'text/xml');
+      const geojson = toGeoJSON.kml(kml);
+      L.geoJSON(geojson).addTo(map);
+    }
   </script>
 </body>
 </html>
