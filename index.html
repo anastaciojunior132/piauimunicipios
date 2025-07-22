@@ -101,20 +101,20 @@
       z-index: 1000;
     }
     .map-title {
-  position: absolute;
-  top: 10px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(255, 255, 255, 0.9);
-  padding: 8px 16px;
-  border-radius: 6px;
-  font-size: 18px;
-  font-weight: bold;
-  color: #333;
-  box-shadow: 0 0 6px rgba(0, 0, 0, 0.3);
-  z-index: 2000;
-  text-align: center;
-}
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(255, 255, 255, 0.9);
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 18px;
+      font-weight: bold;
+      color: #333;
+      box-shadow: 0 0 6px rgba(0, 0, 0, 0.3);
+      z-index: 2000;
+      text-align: center;
+    }
   </style>
 </head>
 <body>
@@ -133,6 +133,8 @@
   <!-- JSZip para ler KMZ -->
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/tokml@0.4.0/tokml.js"></script> <!-- Você usa tokml, então inclua -->
+  <!-- leaflet-omnivore para ler KML/KMZ em Leaflet -->  <!-- <-- ADIÇÃO -->
+  <script src="https://api.mapbox.com/mapbox.js/plugins/leaflet-omnivore/v0.3.4/leaflet-omnivore.min.js"></script> <!-- <-- ADIÇÃO -->
 
   <script>
     const map = L.map('map').setView([-7, -42], 7);
@@ -464,6 +466,59 @@
       const utm = latLonToUTM(e.latlng.lat, e.latlng.lng);
       coordsDiv.innerHTML = `Lat: ${lat}, Lon: ${lon}<br>E: ${utm.x.toFixed(2)}, N: ${utm.y.toFixed(2)}<br>Fuso: ${utm.zone}`;
     });
+
+    /* ===== Upload de KML / KMZ ===== */  // <-- ADIÇÃO
+    const uploadBtnEl = document.getElementById('uploadBtn');     // <-- ADIÇÃO
+    const uploadInputEl = document.getElementById('uploadInput'); // <-- ADIÇÃO
+
+    uploadBtnEl.addEventListener('click', () => {                 // <-- ADIÇÃO
+      uploadInputEl.click();
+    });                                                           // <-- ADIÇÃO
+
+    uploadInputEl.addEventListener('change', async function(e) {  // <-- ADIÇÃO
+      const files = Array.from(e.target.files);
+      for (const file of files) {
+        const name = file.name;
+        try {
+          if (name.toLowerCase().endsWith('.kml')) {
+            const text = await file.text();
+            addKMLTextToMap(text, name);
+          } else if (name.toLowerCase().endsWith('.kmz')) {
+            const arrayBuf = await file.arrayBuffer();
+            const zip = await JSZip.loadAsync(arrayBuf);
+            let kmlEntry = null;
+            zip.forEach((relPath, zipEntry) => {
+              if (!kmlEntry && relPath.toLowerCase().endsWith('.kml')) {
+                kmlEntry = zipEntry;
+              }
+            });
+            if (!kmlEntry) {
+              alert('KMZ sem arquivo KML interno: ' + name);
+              continue;
+            }
+            const kmlText = await kmlEntry.async('text');
+            addKMLTextToMap(kmlText, name);
+          } else {
+            alert('Formato não suportado: ' + name);
+          }
+        } catch (err) {
+          console.error(err);
+          alert('Erro ao carregar ' + name + ': ' + err.message);
+        }
+      }
+      // permite reenviar o mesmo arquivo depois
+      uploadInputEl.value = '';
+    });                                                           // <-- ADIÇÃO
+
+    function addKMLTextToMap(kmlText, layerName) {                // <-- ADIÇÃO
+      const kmlLayer = omnivore.kml.parse(kmlText);
+      kmlLayer.addTo(map);
+      if (layersControl) {
+        layersControl.addOverlay(kmlLayer, layerName);
+      }
+      // tenta enquadrar
+      try { map.fitBounds(kmlLayer.getBounds()); } catch(_) {}
+    }                                                             // <-- ADIÇÃO
   </script>
 </body>
 </html>
