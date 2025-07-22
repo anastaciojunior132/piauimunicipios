@@ -89,10 +89,22 @@
       border-bottom: 1px solid #eee;
     }
     #listaMunicipios div:hover { background-color: #ddd; }
+    #coords {
+      position: absolute;
+      bottom: 10px;
+      left: 10px;
+      background: white;
+      padding: 5px 8px;
+      font-size: 13px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+      z-index: 1000;
+    }
   </style>
 </head>
 <body>
   <div id="map"></div>
+  <div id="coords">Lat: -, Lon: -<br>E: -, N: -<br>Fuso: -</div>
 
   <button id="uploadBtn">Upload KML</button>
   <input type="file" id="uploadInput" accept=".kml,.kmz,.xml" multiple />
@@ -343,9 +355,9 @@
     linhaImperialLayer.on('data:loaded', () => { litigioLayer.bringToFront(); });
 
     /* ==============================
-       CONTROLE DE CAMADAS (referência)
+       CONTROLE DE CAMADAS
        ============================== */
-    const baseMaps = {}; // sem base alternativa por enquanto
+    const baseMaps = {}; 
     const overlayMaps = {
       "Territórios": territoriosLayer,
       "Municípios": municipiosLayer,
@@ -355,286 +367,65 @@
     const layersControl = L.control.layers(baseMaps, overlayMaps).addTo(map);
 
    function addLegend() {
-  const legend = L.control({ position: 'bottomright' });
-  legend.onAdd = function () {
-    const div = L.DomUtil.create('div', 'legend');
-    div.innerHTML = '<b>Territórios</b><br>';
-    territorioColors.forEach(t => {
-      div.innerHTML += `<i style="background:${t.cor}"></i> ${t.nome}<br>`;
-    });
-    // Texto adicional abaixo
-    div.innerHTML += '<hr style="margin:5px 0;">';
-    div.innerHTML += '<small>Coordenação de Cartografia e Geoinformação<br>CCGEO/CIET/SEPLAN</small>';
-    return div;
-  };
-  legend.addTo(map);
-}
-
-    const downloadBtn = document.getElementById("downloadBtn");
-    if (downloadBtn) {
-      downloadBtn.addEventListener("click", () => {
-        const combined = {
-          type: "FeatureCollection",
-          features: []
-        };
-        [territoriosLayer, municipiosLayer, litigioLayer, linhaImperialLayer].forEach(layerGroup => {
-          layerGroup.eachLayer(l => {
-            if (l.feature) combined.features.push(l.feature);
-          });
+      const legend = L.control({ position: 'bottomright' });
+      legend.onAdd = function () {
+        const div = L.DomUtil.create('div', 'legend');
+        div.innerHTML = '<b>Territórios</b><br>';
+        territorioColors.forEach(t => {
+          div.innerHTML += `<i style="background:${t.cor}"></i> ${t.nome}<br>`;
         });
-        const kml = tokml(combined);
-        const blob = new Blob([kml], { type: "application/vnd.google-earth.kml+xml" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = "mapa.kml";
-        a.click();
-        URL.revokeObjectURL(url);
-      });
+        div.innerHTML += '<hr style="margin:5px 0;">';
+        div.innerHTML += '<small>Coordenação de Cartografia e Geoinformação<br>CCGEO/CIET/SEPLAN</small>';
+        return div;
+      };
+      legend.addTo(map);
     }
 
-    const uploadBtn = document.getElementById('uploadBtn');
-    const uploadInput = document.getElementById('uploadInput');
-    L.DomEvent.disableClickPropagation(uploadBtn);
-    let uploadedLayer = null; /* mantido, mas não mais usado para remover */
+    /* ========== Função Lat/Lon -> UTM ========== */
+    function latLonToUTM(lat, lon) {
+      const a = 6378137.0;
+      const f = 1 / 298.257223563;
+      const k0 = 0.9996;
+      const e = Math.sqrt(f * (2 - f));
 
-    uploadBtn.addEventListener('click', () => {
-      uploadInput.click();
+      const zone = Math.floor((lon + 180) / 6) + 1;
+      const λ0 = (zone - 1) * 6 - 180 + 3;
+      const λ0rad = λ0 * Math.PI / 180;
+
+      const φ = lat * Math.PI / 180;
+      const λ = lon * Math.PI / 180;
+
+      const N = a / Math.sqrt(1 - e * e * Math.sin(φ) * Math.sin(φ));
+      const T = Math.tan(φ) * Math.tan(φ);
+      const C = (e * e / (1 - e * e)) * Math.cos(φ) * Math.cos(φ);
+      const A = Math.cos(φ) * (λ - λ0rad);
+
+      const M = a * (
+        (1 - e * e / 4 - 3 * e ** 4 / 64 - 5 * e ** 6 / 256) * φ
+        - (3 * e * e / 8 + 3 * e ** 4 / 32 + 45 * e ** 6 / 1024) * Math.sin(2 * φ)
+        + (15 * e ** 4 / 256 + 45 * e ** 6 / 1024) * Math.sin(4 * φ)
+        - (35 * e ** 6 / 3072) * Math.sin(6 * φ)
+      );
+
+      const x = k0 * N * (A + (1 - T + C) * A ** 3 / 6
+        + (5 - 18 * T + T * T + 72 * C - 58 * (e * e / (1 - e * e))) * A ** 5 / 120) + 500000.0;
+
+      let y = k0 * (M + N * Math.tan(φ) * (A ** 2 / 2 + (5 - T + 9 * C + 4 * C ** 2) * A ** 4 / 24
+        + (61 - 58 * T + T * T + 600 * C - 330 * (e * e / (1 - e * e))) * A ** 6 / 720));
+
+      if (lat < 0) y += 10000000.0;
+
+      return { x, y, zone };
+    }
+
+    /* ===== Atualiza coordenadas ===== */
+    const coordsDiv = document.getElementById('coords');
+    map.on('mousemove', function (e) {
+      const lat = e.latlng.lat.toFixed(5);
+      const lon = e.latlng.lng.toFixed(5);
+      const utm = latLonToUTM(e.latlng.lat, e.latlng.lng);
+      coordsDiv.innerHTML = `Lat: ${lat}, Lon: ${lon}<br>E: ${utm.x.toFixed(2)}, N: ${utm.y.toFixed(2)}<br>Fuso: ${utm.zone}`;
     });
-
-    /* ==============================
-       Upload MULTI KML/KMZ
-       ============================== */
-    uploadInput.addEventListener('change', async (event) => {
-      const files = event.target.files;
-      if (!files || files.length === 0) return;
-
-      for (const file of files) {
-        const fileName = file.name;
-        const displayName = fileName.replace(/\.(kmz|kml|xml)$/i, '') || 'Upload';
-
-        try {
-          let geojson;
-
-          if (/\.kmz$/i.test(fileName)) {
-            const arrayBuffer = await file.arrayBuffer();
-            geojson = await parseKmzToGeoJSON(arrayBuffer);
-          } else {
-            const text = await file.text();
-            const parser = new DOMParser();
-            const kmlDoc = parser.parseFromString(text, "application/xml");
-            geojson = kmlToGeoJSON(kmlDoc);
-          }
-
-          const newLayer = L.geoJSON(geojson, {
-            style: { color: 'purple', weight: 2, dashArray: '4,4' },
-            onEachFeature: (feature, layer) => {
-              if (feature.properties) {
-                let content = `<b>${displayName}</b><br>`;
-                for (const key in feature.properties) {
-                  content += `<b>${key}:</b> ${feature.properties[key]}<br>`;
-                }
-                layer.bindPopup(content);
-              }
-            }
-          }).addTo(map);
-
-          layersControl.addOverlay(newLayer, displayName);
-
-          map.fitBounds(newLayer.getBounds());
-        } catch (err) {
-          alert("Erro ao carregar arquivo KML/KMZ: " + err.message);
-          console.error(err);
-        }
-      }
-
-      uploadInput.value = "";
-    });
-
-    /* ==============================
-       Conversor KMZ -> GeoJSON
-       ============================== */
-    async function parseKmzToGeoJSON(arrayBuffer) {
-      const zip = await JSZip.loadAsync(arrayBuffer);
-      let kmlEntry = null;
-      zip.forEach((path, entry) => {
-        if (!kmlEntry && /\.kml$/i.test(path)) {
-          kmlEntry = entry;
-        }
-      });
-      if (!kmlEntry) {
-        throw new Error("KMZ não contém arquivo KML.");
-      }
-      const kmlText = await kmlEntry.async("text");
-      const kmlDoc = new DOMParser().parseFromString(kmlText, "application/xml");
-      return kmlToGeoJSON(kmlDoc);
-    }
-
-    /* ==============================
-       Conversor KML -> GeoJSON (simplificado)
-       ============================== */
-    function kmlToGeoJSON(xml) {
-      const geojson = { type: "FeatureCollection", features: [] };
-      const placemarks = xml.getElementsByTagName("Placemark");
-      for (let i = 0; i < placemarks.length; i++) {
-        const pm = placemarks[i];
-        const name = pm.getElementsByTagName("name")[0]?.textContent || "";
-
-        // ExtendedData (atributos)
-        const props = { name };
-        const extDatas = pm.getElementsByTagName("ExtendedData");
-        if (extDatas.length) {
-          const dataNodes = extDatas[0].getElementsByTagName("Data");
-          for (let d = 0; d < dataNodes.length; d++) {
-            const dn = dataNodes[d];
-            const attrName = dn.getAttribute("name") || `attr_${d}`;
-            const valNode = dn.getElementsByTagName("value")[0];
-            props[attrName] = valNode ? valNode.textContent : "";
-          }
-        }
-
-        // Procura geometria
-        let geometry = null;
-
-        // Polygon
-        const polygons = pm.getElementsByTagName("Polygon");
-        if (polygons.length > 0) {
-          const coords = getKmlPolygonCoords(polygons[0]);
-          geometry = { type: "Polygon", coordinates: coords };
-        }
-
-        // LineString (se não tiver polygon)
-        if (!geometry) {
-          const lines = pm.getElementsByTagName("LineString");
-          if (lines.length > 0) {
-            const coords = getKmlCoords(lines[0]);
-            geometry = { type: "LineString", coordinates: coords };
-          }
-        }
-
-        // Point (fallback)
-        if (!geometry) {
-          const points = pm.getElementsByTagName("Point");
-          if (points.length > 0) {
-            const coords = getKmlCoords(points[0]);
-            geometry = { type: "Point", coordinates: coords[0] };
-          }
-        }
-
-        if (!geometry) continue; // sem geom, ignora
-
-        geojson.features.push({
-          type: "Feature",
-          geometry,
-          properties: props
-        });
-      }
-      return geojson;
-    }
-
-    // Extrai coords (lon,lat) de Polygon incluindo holes
-    function getKmlPolygonCoords(polyNode) {
-      const rings = [];
-      const outer = polyNode.getElementsByTagName("outerBoundaryIs");
-      if (outer.length) {
-        const ring = getKmlLinearRingCoords(outer[0]);
-        if (ring.length) rings.push(ring);
-      }
-      const inners = polyNode.getElementsByTagName("innerBoundaryIs");
-      for (let i = 0; i < inners.length; i++) {
-        const ring = getKmlLinearRingCoords(inners[i]);
-        if (ring.length) rings.push(ring);
-      }
-      return rings;
-    }
-
-    function getKmlLinearRingCoords(boundaryNode) {
-      const lr = boundaryNode.getElementsByTagName("LinearRing");
-      if (!lr.length) return [];
-      return getKmlCoords(lr[0]);
-    }
-
-    // Extrai lista de coords [lon,lat] de um nó com <coordinates>
-    function getKmlCoords(node) {
-      const coordNode = node.getElementsByTagName("coordinates")[0];
-      if (!coordNode) return [];
-      const txt = coordNode.textContent.trim();
-      if (!txt) return [];
-      return txt
-        .split(/\s+/)
-        .map(pair => {
-          const nums = pair.split(",").map(Number);
-          return [nums[0], nums[1]]; // ignora altitude se houver
-        });
-    }
-
-    /* ==============================
-       GeoJSON -> KML (já estava no seu código)
-       ============================== */
-    function tokml(geojson) {
-      return `<?xml version="1.0" encoding="UTF-8"?>
-<kml xmlns="http://www.opengis.net/kml/2.2">
-  <Document>
-    ${geojson.features.map(f => featureToKml(f)).join('')}
-  </Document>
-</kml>`;
-    }
-
-    function featureToKml(feature) {
-      const props = Object.entries(feature.properties || {})
-        .map(([k, v]) => `<Data name="${xmlEsc(k)}"><value>${xmlEsc(v)}</value></Data>`).join('');
-      const extData = props ? `<ExtendedData>${props}</ExtendedData>` : '';
-      const geom = geometryToKml(feature.geometry);
-      return `<Placemark>${extData}${geom}</Placemark>`;
-    }
-
-    function geometryToKml(geom) {
-      if (!geom) return '';
-      switch (geom.type) {
-        case 'Polygon': return polygonToKml(geom.coordinates);
-        case 'MultiPolygon': return geom.coordinates.map(coords => polygonToKml(coords)).join('');
-        case 'LineString': return lineToKml(geom.coordinates);
-        case 'MultiLineString': return geom.coordinates.map(coords => lineToKml(coords)).join('');
-        case 'Point': return pointToKml(geom.coordinates);
-        case 'MultiPoint': return geom.coordinates.map(coords => pointToKml(coords)).join('');
-        default: return '';
-      }
-    }
-
-    function polygonToKml(coords) {
-      const outer = coords[0] || [];
-      const holes = coords.slice(1) || [];
-      let k = '<Polygon><outerBoundaryIs><LinearRing><coordinates>';
-      k += coordArrayToStr(outer);
-      k += '</coordinates></LinearRing></outerBoundaryIs>';
-      holes.forEach(h => {
-        k += '<innerBoundaryIs><LinearRing><coordinates>' + coordArrayToStr(h) + '</coordinates></LinearRing></innerBoundaryIs>';
-      });
-      k += '</Polygon>';
-      return k;
-    }
-
-    function lineToKml(coords) {
-      return '<LineString><coordinates>' + coordArrayToStr(coords) + '</coordinates></LineString>';
-    }
-
-    function pointToKml(coord) {
-      return '<Point><coordinates>' + coord.join(',') + '</coordinates></Point>';
-    }
-
-    function coordArrayToStr(arr) {
-      return arr.map(c => c.join(',')).join(' ');
-    }
-
-    function xmlEsc(v) {
-      if (v === null || v === undefined) return '';
-      return String(v)
-        .replace(/&/g,'&amp;')
-        .replace(/</g,'&lt;')
-        .replace(/>/g,'&gt;')
-        .replace(/"/g,'&quot;')
-        .replace(/'/g,'&apos;');
-    }
   </script>
 </body>
 </html>
