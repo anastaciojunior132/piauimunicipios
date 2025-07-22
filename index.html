@@ -132,9 +132,9 @@
   <script src="https://unpkg.com/leaflet-ajax/dist/leaflet.ajax.min.js"></script>
   <!-- JSZip para ler KMZ -->
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-  <!-- toGeoJSON para converter KML em GeoJSON -->
-  <script src="https://cdn.jsdelivr.net/npm/@tmcw/togeojson@0.16.0/dist/togeojson.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/tokml@0.4.0/tokml.js"></script> <!-- Você usa tokml, então inclua -->
+  <!-- leaflet-omnivore para ler KML/KMZ em Leaflet -->  <!-- <-- ADIÇÃO -->
+  <script src="https://api.mapbox.com/mapbox.js/plugins/leaflet-omnivore/v0.3.4/leaflet-omnivore.min.js"></script> <!-- <-- ADIÇÃO -->
 
   <script>
     const map = L.map('map').setView([-7, -42], 7);
@@ -390,9 +390,8 @@
     linhaImperialLayer.on('data:loaded', () => { litigioLayer.bringToFront(); });
 
     /* ==============================
-       CONTROLE DE CAMADAS INICIAL (SERÁ SUBSTITUÍDO NO FINAL PELO NOVO)
+       CONTROLE DE CAMADAS
        ============================== */
-    /*
     const baseMaps = {
       "OpenStreetMap": osmLayer,
       "Esri Satélite": esriSat,
@@ -406,110 +405,120 @@
       "Linha Imperial": linhaImperialLayer
     };
     const layersControl = L.control.layers(baseMaps, overlayMaps).addTo(map);
-    */
 
-    // Defina baseMaps (não mexa)
-    const baseMaps = {
-      "OpenStreetMap": osmLayer,
-      "Esri Satélite": esriSat,
-      "Esri Terrain": esriTerrain,
-      "Esri Road": esriRoad
-    };
-
-    // *** NOVO CONTROLE DE CAMADAS, INCLUINDO CAMADAS UPLOADADAS, E SUBSTITUINDO O CONTROLE ORIGINAL ***
-    let layersControl = L.control.layers(baseMaps, {
-      "Territórios": territoriosLayer,
-      "Municípios": municipiosLayer,
-      "Litígio": litigioLayer,
-      "Linha Imperial": linhaImperialLayer
-    }).addTo(map);
-
-    // OBJETO PARA GUARDAR CAMADAS UPLOADADAS
-    const layersUploadadas = {};
-
-    // FUNÇÃO PARA ATUALIZAR O CONTROLE DE CAMADAS COM AS UPLOADADAS
-    function atualizarControleCamadas() {
-      layersControl.remove();
-      const overlaysAtualizados = {
-        "Territórios": territoriosLayer,
-        "Municípios": municipiosLayer,
-        "Litígio": litigioLayer,
-        "Linha Imperial": linhaImperialLayer,
-        ...layersUploadadas
+    function addLegend() {
+      const legend = L.control({ position: 'bottomright' });
+      legend.onAdd = function () {
+        const div = L.DomUtil.create('div', 'legend');
+        div.innerHTML = '<b>Territórios</b><br>';
+        territorioColors.forEach(t => {
+          div.innerHTML += `<i style="background:${t.cor}"></i> ${t.nome}<br>`;
+        });
+        div.innerHTML += '<hr style="margin:5px 0;">';
+        div.innerHTML += '<small>Coordenação de Cartografia e Geoinformação<br>CCGEO/CIET/SEPLAN</small>';
+        return div;
       };
-      layersControl = L.control.layers(baseMaps, overlaysAtualizados).addTo(map);
+      legend.addTo(map);
     }
 
-    // FUNÇÃO PARA ADICIONAR KML AO MAPA E CONTROLAR ZOOM
-    function addKMLToMap(kmlText, nomeArquivo) {
-      const parser = new DOMParser();
-      const kml = parser.parseFromString(kmlText, 'text/xml');
-      const geojson = toGeoJSON.kml(kml);
+    /* ========== Função Lat/Lon -> UTM ========== */
+    function latLonToUTM(lat, lon) {
+      const a = 6378137.0;
+      const f = 1 / 298.257223563;
+      const k0 = 0.9996;
+      const e = Math.sqrt(f * (2 - f));
 
-      const novaLayer = L.geoJSON(geojson, {
-        onEachFeature: onEachFeaturePopup
-      }).addTo(map);
+      const zone = Math.floor((lon + 180) / 6) + 1;
+      const λ0 = (zone - 1) * 6 - 180 + 3;
+      const λ0rad = λ0 * Math.PI / 180;
 
-      layersUploadadas[nomeArquivo] = novaLayer;
+      const φ = lat * Math.PI / 180;
+      const λ = lon * Math.PI / 180;
 
-      atualizarControleCamadas();
+      const N = a / Math.sqrt(1 - e * e * Math.sin(φ) * Math.sin(φ));
+      const T = Math.tan(φ) * Math.tan(φ);
+      const C = (e * e / (1 - e * e)) * Math.cos(φ) * Math.cos(φ);
+      const A = Math.cos(φ) * (λ - λ0rad);
 
-      map.fitBounds(novaLayer.getBounds());
+      const M = a * (
+        (1 - e * e / 4 - 3 * e ** 4 / 64 - 5 * e ** 6 / 256) * φ
+        - (3 * e * e / 8 + 3 * e ** 4 / 32 + 45 * e ** 6 / 1024) * Math.sin(2 * φ)
+        + (15 * e ** 4 / 256 + 45 * e ** 6 / 1024) * Math.sin(4 * φ)
+        - (35 * e ** 6 / 3072) * Math.sin(6 * φ)
+      );
+
+      const x = k0 * N * (A + (1 - T + C) * A ** 3 / 6
+        + (5 - 18 * T + T * T + 72 * C - 58 * (e * e / (1 - e * e))) * A ** 5 / 120) + 500000.0;
+
+      let y = k0 * (M + N * Math.tan(φ) * (A ** 2 / 2 + (5 - T + 9 * C + 4 * C ** 2) * A ** 4 / 24
+        + (61 - 58 * T + T * T + 600 * C - 330 * (e * e / (1 - e * e))) * A ** 6 / 720));
+
+      if (lat < 0) y += 10000000.0;
+
+      return { x, y, zone };
     }
 
-    // EVENTO DO INPUT DE UPLOAD, LENDO MULTIPLOS KML E KMZ
-    document.getElementById('uploadInput').addEventListener('change', (e) => {
-      const files = e.target.files;
-      if (!files.length) return;
+    /* ===== Atualiza coordenadas ===== */
+    const coordsDiv = document.getElementById('coords');
+    map.on('mousemove', function (e) {
+      const lat = e.latlng.lat.toFixed(5);
+      const lon = e.latlng.lng.toFixed(5);
+      const utm = latLonToUTM(e.latlng.lat, e.latlng.lng);
+      coordsDiv.innerHTML = `Lat: ${lat}, Lon: ${lon}<br>E: ${utm.x.toFixed(2)}, N: ${utm.y.toFixed(2)}<br>Fuso: ${utm.zone}`;
+    });
 
-      [...files].forEach(file => {
-        const reader = new FileReader();
+    /* ===== Upload de KML / KMZ ===== */  // <-- ADIÇÃO
+    const uploadBtnEl = document.getElementById('uploadBtn');     // <-- ADIÇÃO
+    const uploadInputEl = document.getElementById('uploadInput'); // <-- ADIÇÃO
 
-        if (file.name.toLowerCase().endsWith('.kmz')) {
-          reader.onload = function(evt) {
-            JSZip.loadAsync(evt.target.result).then(zip => {
-              const kmlFile = Object.keys(zip.files).find(name => name.endsWith('.kml'));
-              if (kmlFile) {
-                zip.files[kmlFile].async('text').then(kmlText => {
-                  addKMLToMap(kmlText, file.name);
-                });
-              } else {
-                alert('Arquivo KMZ não contém um KML válido!');
+    uploadBtnEl.addEventListener('click', () => {                 // <-- ADIÇÃO
+      uploadInputEl.click();
+    });                                                           // <-- ADIÇÃO
+
+    uploadInputEl.addEventListener('change', async function(e) {  // <-- ADIÇÃO
+      const files = Array.from(e.target.files);
+      for (const file of files) {
+        const name = file.name;
+        try {
+          if (name.toLowerCase().endsWith('.kml')) {
+            const text = await file.text();
+            addKMLTextToMap(text, name);
+          } else if (name.toLowerCase().endsWith('.kmz')) {
+            const arrayBuf = await file.arrayBuffer();
+            const zip = await JSZip.loadAsync(arrayBuf);
+            let kmlEntry = null;
+            zip.forEach((relPath, zipEntry) => {
+              if (!kmlEntry && relPath.toLowerCase().endsWith('.kml')) {
+                kmlEntry = zipEntry;
               }
             });
-          };
-          reader.readAsArrayBuffer(file);
-        } else {
-          reader.onload = function(evt) {
-            addKMLToMap(evt.target.result, file.name);
-          };
-          reader.readAsText(file);
+            if (!kmlEntry) {
+              alert('KMZ sem arquivo KML interno: ' + name);
+              continue;
+            }
+            const kmlText = await kmlEntry.async('text');
+            addKMLTextToMap(kmlText, name);
+          } else {
+            alert('Formato não suportado: ' + name);
+          }
+        } catch (err) {
+          console.error(err);
+          alert('Erro ao carregar ' + name + ': ' + err.message);
         }
-      });
-    });
+      }
+      // permite reenviar o mesmo arquivo depois
+      uploadInputEl.value = '';
+    });                                                           // <-- ADIÇÃO
 
-    // BOTÃO PARA ABRIR DIALOGO DE UPLOAD
-    document.getElementById('uploadBtn').addEventListener('click', () => {
-      document.getElementById('uploadInput').click();
-    });
-
-    /* ========================
-       MOSTRAR COORDENADAS NO MAPA
-       ======================== */
-    const coordsDiv = document.getElementById('coords');
-
-    map.on('mousemove', function(e) {
-      const lat = e.latlng.lat.toFixed(6);
-      const lon = e.latlng.lng.toFixed(6);
-      const utm = proj4('EPSG:4326', 'EPSG:32723', [lon, lat]); // Exemplo UTM - você pode ajustar fuso/datum
-
-      coordsDiv.innerHTML = `
-        Lat: ${lat}°, Lon: ${lon}°<br>
-        E: ${utm[0].toFixed(2)}, N: ${utm[1].toFixed(2)}<br>
-        Fuso: 23S (exemplo)
-      `;
-    });
-
+    function addKMLTextToMap(kmlText, layerName) {                // <-- ADIÇÃO
+      const kmlLayer = omnivore.kml.parse(kmlText);
+      kmlLayer.addTo(map);
+      if (layersControl) {
+        layersControl.addOverlay(kmlLayer, layerName);
+      }
+      // tenta enquadrar
+      try { map.fitBounds(kmlLayer.getBounds()); } catch(_) {}
+    }                                                             // <-- ADIÇÃO
   </script>
 </body>
 </html>
