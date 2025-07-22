@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8" />
-  <title>Mapa – PIAUÍ</title>
+  <title>Mapa – Sidebar e Download KML</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <style>
@@ -142,7 +142,7 @@
     function generateInfoContent(properties) {
       let content = "<b>Atributos:</b><br>";
       for (const key in properties) {
-        content += <b>${key}:</b> ${properties[key]}<br>;
+        content += `<b>${key}:</b> ${properties[key]}<br>`;
       }
       return content;
     }
@@ -150,7 +150,7 @@
     function onEachFeaturePopup(feature, layer) {
       if (feature.properties) {
         const popupContent = generateInfoContent(feature.properties) + 
-          <button class="download-btn" style="margin-top:5px;">Baixar KML desta feição</button>;
+          `<button class="download-btn" style="margin-top:5px;">Baixar KML desta feição</button>`;
         layer.bindPopup(popupContent);
 
         layer.on('popupopen', () => {
@@ -210,7 +210,7 @@
       });
       if (feature.properties) {
         layer.bindPopup(generateInfoContent(feature.properties) +
-          <button class="download-btn" style="margin-top:5px;">Baixar KML desta feição</button>);
+          `<button class="download-btn" style="margin-top:5px;">Baixar KML desta feição</button>`);
         layer.on('popupopen', () => {
           const btn = document.querySelector('.download-btn');
           if (btn) {
@@ -360,11 +360,11 @@
     const div = L.DomUtil.create('div', 'legend');
     div.innerHTML = '<b>Territórios</b><br>';
     territorioColors.forEach(t => {
-      div.innerHTML += <i style="background:${t.cor}"></i> ${t.nome}<br>;
+      div.innerHTML += `<i style="background:${t.cor}"></i> ${t.nome}<br>`;
     });
     // Texto adicional abaixo
     div.innerHTML += '<hr style="margin:5px 0;">';
-    div.innerHTML += '<small>Coordenação de Cartografia e Geoinformação<br>           CCGEO/CIET/SEPLAN</small>';
+    div.innerHTML += '<small>Coordenação de Cartografia e Geoinformação<br>CCGEO/CIET/SEPLAN</small>';
     return div;
   };
   legend.addTo(map);
@@ -430,9 +430,9 @@
             style: { color: 'purple', weight: 2, dashArray: '4,4' },
             onEachFeature: (feature, layer) => {
               if (feature.properties) {
-                let content = <b>${displayName}</b><br>;
+                let content = `<b>${displayName}</b><br>`;
                 for (const key in feature.properties) {
-                  content += <b>${key}:</b> ${feature.properties[key]}<br>;
+                  content += `<b>${key}:</b> ${feature.properties[key]}<br>`;
                 }
                 layer.bindPopup(content);
               }
@@ -487,7 +487,7 @@
           const dataNodes = extDatas[0].getElementsByTagName("Data");
           for (let d = 0; d < dataNodes.length; d++) {
             const dn = dataNodes[d];
-            const attrName = dn.getAttribute("name") || attr_${d};
+            const attrName = dn.getAttribute("name") || `attr_${d}`;
             const valNode = dn.getElementsByTagName("value")[0];
             props[attrName] = valNode ? valNode.textContent : "";
           }
@@ -572,20 +572,20 @@
        GeoJSON -> KML (já estava no seu código)
        ============================== */
     function tokml(geojson) {
-      return <?xml version="1.0" encoding="UTF-8"?>
+      return `<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2">
   <Document>
     ${geojson.features.map(f => featureToKml(f)).join('')}
   </Document>
-</kml>;
+</kml>`;
     }
 
     function featureToKml(feature) {
       const props = Object.entries(feature.properties || {})
-        .map(([k, v]) => <Data name="${xmlEsc(k)}"><value>${xmlEsc(v)}</value></Data>).join('');
-      const extData = props ? <ExtendedData>${props}</ExtendedData> : '';
+        .map(([k, v]) => `<Data name="${xmlEsc(k)}"><value>${xmlEsc(v)}</value></Data>`).join('');
+      const extData = props ? `<ExtendedData>${props}</ExtendedData>` : '';
       const geom = geometryToKml(feature.geometry);
-      return <Placemark>${extData}${geom}</Placemark>;
+      return `<Placemark>${extData}${geom}</Placemark>`;
     }
 
     function geometryToKml(geom) {
@@ -637,4 +637,4 @@
     }
   </script>
 </body>
-</html> 
+</html>
