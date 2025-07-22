@@ -100,10 +100,26 @@
       border: 1px solid rgba(204, 204, 204, 0.5);
       z-index: 1000;
     }
+    .map-title {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(255, 255, 255, 0.9);
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 18px;
+  font-weight: bold;
+  color: #333;
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.3);
+  z-index: 2000;
+  text-align: center;
+}
   </style>
 </head>
 <body>
   <div id="map"></div>
+  <div class="map-title">Mapa Interativo – Territórios e Municípios</div>
   <div id="coords">Lat: -, Lon: -<br>E: -, N: -<br>Fuso: -</div>
 
   <button id="uploadBtn">Upload KML</button>
