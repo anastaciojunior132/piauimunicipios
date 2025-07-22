@@ -104,12 +104,7 @@
 </head>
 <body>
   <div id="map"></div>
-  <div id="coords">
-    Lat: -, Lon: -<br>
-    E: -, N: -<br>
-    Fuso: -<br>
-    <small>Sistema: WGS84 (EPSG:4326), Datum: WGS84</small>
-  </div>
+  <div id="coords">Lat: -, Lon: -<br>E: -, N: -<br>Fuso: -</div>
 
   <button id="uploadBtn">Upload KML</button>
   <input type="file" id="uploadInput" accept=".kml,.kmz,.xml" multiple />
@@ -119,10 +114,9 @@
 
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script src="https://unpkg.com/leaflet-ajax/dist/leaflet.ajax.min.js"></script>
+  <!-- JSZip para ler KMZ -->
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-  
-  <!-- Plugin Leaflet.Graticule para grades coordenadas -->
-  <script src="https://unpkg.com/leaflet-graticule@1.0.0/dist/leaflet-graticule.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tokml@0.4.0/tokml.js"></script> <!-- Você usa tokml, então inclua -->
 
   <script>
     const map = L.map('map').setView([-7, -42], 7);
@@ -135,10 +129,10 @@
     };
     north.addTo(map);
 
-    // Base layers ESRI (adicionando para poder usar no controle depois)
+    // Camadas base
     const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© OpenStreetMap contributors'
-    }).addTo(map);
+    });
 
     const esriSat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
       attribution: 'Tiles © Esri'
@@ -152,21 +146,217 @@
       attribution: 'Tiles © Esri'
     });
 
-    // Seu código para territoriosLayer, municipiosLayer, litigioLayer, linhaImperialLayer
-    // ... (mantido exatamente como estava)
+    // Define camada padrão (OpenStreetMap)
+    osmLayer.addTo(map);
 
-    // Exemplo (você deve substituir pelas suas layers e código original):
+    /* =========================
+       SEU CÓDIGO EXISTENTE PARA TERRITÓRIOS, MUNICÍPIOS, ETC...
+       ========================= */
+    const territorioPalette = [
+      '#1f78b4', '#e31a1c', '#33a02c', '#ff7f00',
+      '#6a3d9a', '#b15928', '#a6cee3', '#b2df8a',
+      '#fb9a99', '#fdbf6f'
+    ];
+
+    const territorioColors = [];
+    let colorIndex = 0;
+
+    function getColorForTerritorio(nome) {
+      let terr = territorioColors.find(t => t.nome === nome);
+      if (!terr) {
+        terr = { nome, cor: territorioPalette[colorIndex % territorioPalette.length] };
+        territorioColors.push(terr);
+        colorIndex++;
+      }
+      return terr.cor;
+    }
+
+    function generateInfoContent(properties) {
+      let content = "<b>Atributos:</b><br>";
+      for (const key in properties) {
+        content += `<b>${key}:</b> ${properties[key]}<br>`;
+      }
+      return content;
+    }
+
+    function onEachFeaturePopup(feature, layer) {
+      if (feature.properties) {
+        const popupContent = generateInfoContent(feature.properties) + 
+          `<button class="download-btn" style="margin-top:5px;">Baixar KML desta feição</button>`;
+        layer.bindPopup(popupContent);
+
+        layer.on('popupopen', () => {
+          const btn = document.querySelector('.download-btn');
+          if (btn) {
+            btn.onclick = () => {
+              const kml = tokml({ type: "FeatureCollection", features: [feature] });
+              const blob = new Blob([kml], { type: "application/vnd.google-earth.kml+xml" });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = "feicao.kml";
+              a.click();
+              URL.revokeObjectURL(url);
+            };
+          }
+        });
+      }
+    }
+
+    function styleTerritorios(feature) {
+      const nome = feature.properties.NM_TD || "Território";
+      return {
+        color: getColorForTerritorio(nome),
+        weight: 2,
+        fillColor: getColorForTerritorio(nome),
+        fillOpacity: 0.4
+      };
+    }
+
     const territoriosLayer = new L.GeoJSON.AJAX("territorios.geojson", { 
       style: styleTerritorios,
       onEachFeature: onEachFeaturePopup
     });
+
+    territoriosLayer.on('data:loaded', addLegend);
     territoriosLayer.addTo(map);
+
+    function styleMunicipios() {
+      return { color: '#000', weight: 1.5, fillOpacity: 0 };
+    }
+
+    function highlightFeature(e) {
+      const layer = e.target;
+      layer.setStyle({ weight: 3, color: '#666', fillOpacity: 0.1 });
+      layer.bringToFront();
+    }
+
+    function resetHighlight(e) {
+      municipiosLayer.resetStyle(e.target);
+    }
+
+    function onEachMunicipio(feature, layer) {
+      layer.on({
+        mouseover: highlightFeature,
+        mouseout: resetHighlight
+      });
+      if (feature.properties) {
+        layer.bindPopup(generateInfoContent(feature.properties) +
+          `<button class="download-btn" style="margin-top:5px;">Baixar KML desta feição</button>`);
+        layer.on('popupopen', () => {
+          const btn = document.querySelector('.download-btn');
+          if (btn) {
+            btn.onclick = () => {
+              const kml = tokml({ type: "FeatureCollection", features: [feature] });
+              const blob = new Blob([kml], { type: "application/vnd.google-earth.kml+xml" });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = "feicao.kml";
+              a.click();
+              URL.revokeObjectURL(url);
+            };
+          }
+        });
+      }
+    }
 
     const municipiosLayer = new L.GeoJSON.AJAX("municipios.geojson", { 
       style: styleMunicipios,
       onEachFeature: onEachMunicipio
     });
     municipiosLayer.addTo(map);
+
+    /* ================== Busca Fuzzy =================== */
+    const searchInput = document.getElementById('searchMunicipio');
+    const listaMunicipios = document.getElementById('listaMunicipios');
+
+    function levenshtein(a, b) {
+      const matrix = [];
+      for(let i = 0; i <= b.length; i++){ matrix[i] = [i]; }
+      for(let j = 0; j <= a.length; j++){ matrix[0][j] = j; }
+      for(let i = 1; i <= b.length; i++){
+        for(let j = 1; j <= a.length; j++){
+          if(b.charAt(i-1) === a.charAt(j-1)){
+            matrix[i][j] = matrix[i-1][j-1];
+          } else {
+            matrix[i][j] = Math.min(matrix[i-1][j-1] + 1,
+              Math.min(matrix[i][j-1] + 1, matrix[i-1][j] +1));
+          }
+        }
+      }
+      return matrix[b.length][a.length];
+    }
+
+    searchInput.addEventListener('input', function () {
+      const termo = this.value.trim().toLowerCase();
+      listaMunicipios.innerHTML = '';
+      if (!termo) {
+        listaMunicipios.style.display = 'none';
+        return;
+      }
+
+      const resultados = [];
+
+      municipiosLayer.eachLayer(layer => {
+        const nomeMun = layer.feature.properties.NM_MUN;
+        if (nomeMun) {
+          const nomeLower = nomeMun.toLowerCase();
+          if (nomeLower.includes(termo)) {
+            resultados.push({ nome: nomeMun, layer });
+          } else {
+            const dist = levenshtein(termo, nomeLower);
+            if (dist <= 3) {
+              resultados.push({ nome: nomeMun, layer });
+            }
+          }
+        }
+      });
+
+      if (resultados.length === 0) {
+        listaMunicipios.style.display = 'none';
+        return;
+      }
+
+      resultados.forEach(item => {
+        const div = document.createElement('div');
+        div.textContent = item.nome;
+        div.addEventListener('click', () => {
+          map.fitBounds(item.layer.getBounds());
+          item.layer.openPopup();
+          listaMunicipios.style.display = 'none';
+          searchInput.value = item.nome;
+        });
+        listaMunicipios.appendChild(div);
+      });
+
+      listaMunicipios.style.display = 'block';
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!searchInput.contains(e.target) && !listaMunicipios.contains(e.target)) {
+        listaMunicipios.style.display = 'none';
+      }
+    });
+
+    searchInput.addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') {
+        const termo = this.value.trim().toLowerCase();
+        if (!termo) return;
+
+        let achou = false;
+        municipiosLayer.eachLayer(layer => {
+          const nomeMun = layer.feature.properties.NM_MUN;
+          if (nomeMun && nomeMun.toLowerCase() === termo) {
+            map.fitBounds(layer.getBounds());
+            layer.openPopup();
+            achou = true;
+          }
+        });
+        if (!achou) alert('Município não encontrado!');
+        listaMunicipios.style.display = 'none';
+      }
+    });
 
     const litigioLayer = new L.GeoJSON.AJAX("litigio.geojson", { 
       color: 'red', weight: 2, onEachFeature: onEachFeaturePopup
@@ -178,51 +368,42 @@
     });
     linhaImperialLayer.addTo(map);
 
-    // Grade coordenadas (graticule)
-    const graticule = L.graticule({
-      interval: 1,
-      style: {
-        color: '#777',
-        weight: 1,
-        opacity: 0.5,
-        clickable: false
-      },
-      showOriginLabel: true,
-      redraw: 'move'
-    });
+    litigioLayer.on('data:loaded', () => { litigioLayer.bringToFront(); });
+    linhaImperialLayer.on('data:loaded', () => { litigioLayer.bringToFront(); });
 
-    // Controle de camadas com baseMaps e overlayMaps, incluindo a grade
+    /* ==============================
+       CONTROLE DE CAMADAS
+       ============================== */
     const baseMaps = {
       "OpenStreetMap": osmLayer,
       "Esri Satélite": esriSat,
       "Esri Terrain": esriTerrain,
       "Esri Road": esriRoad
-    };
-
+    }; 
     const overlayMaps = {
       "Territórios": territoriosLayer,
       "Municípios": municipiosLayer,
       "Litígio": litigioLayer,
-      "Linha Imperial": linhaImperialLayer,
-      "Grade Coordenadas": graticule
+      "Linha Imperial": linhaImperialLayer
     };
+    const layersControl = L.control.layers(baseMaps, overlayMaps).addTo(map);
 
-    L.control.layers(baseMaps, overlayMaps).addTo(map);
+    function addLegend() {
+      const legend = L.control({ position: 'bottomright' });
+      legend.onAdd = function () {
+        const div = L.DomUtil.create('div', 'legend');
+        div.innerHTML = '<b>Territórios</b><br>';
+        territorioColors.forEach(t => {
+          div.innerHTML += `<i style="background:${t.cor}"></i> ${t.nome}<br>`;
+        });
+        div.innerHTML += '<hr style="margin:5px 0;">';
+        div.innerHTML += '<small>Coordenação de Cartografia e Geoinformação<br>CCGEO/CIET/SEPLAN</small>';
+        return div;
+      };
+      legend.addTo(map);
+    }
 
-    // Atualiza coordenadas no mousemove, mantendo o sistema/datum fixos
-    const coordsDiv = document.getElementById('coords');
-    map.on('mousemove', function (e) {
-      const lat = e.latlng.lat.toFixed(5);
-      const lon = e.latlng.lng.toFixed(5);
-      const utm = latLonToUTM(e.latlng.lat, e.latlng.lng);
-      coordsDiv.innerHTML = 
-        `Lat: ${lat}, Lon: ${lon}<br>` +
-        `E: ${utm.x.toFixed(2)}, N: ${utm.y.toFixed(2)}<br>` +
-        `Fuso: ${utm.zone}<br>` +
-        `<small>Sistema: WGS84 (EPSG:4326), Datum: WGS84</small>`;
-    });
-
-    // Função latLonToUTM mantida exatamente igual (copie do seu código)
+    /* ========== Função Lat/Lon -> UTM ========== */
     function latLonToUTM(lat, lon) {
       const a = 6378137.0;
       const f = 1 / 298.257223563;
@@ -259,8 +440,14 @@
       return { x, y, zone };
     }
 
-    // ... (o restante do seu código permanece inalterado)
-
+    /* ===== Atualiza coordenadas ===== */
+    const coordsDiv = document.getElementById('coords');
+    map.on('mousemove', function (e) {
+      const lat = e.latlng.lat.toFixed(5);
+      const lon = e.latlng.lng.toFixed(5);
+      const utm = latLonToUTM(e.latlng.lat, e.latlng.lng);
+      coordsDiv.innerHTML = `Lat: ${lat}, Lon: ${lon}<br>E: ${utm.x.toFixed(2)}, N: ${utm.y.toFixed(2)}<br>Fuso: ${utm.zone}`;
+    });
   </script>
 </body>
 </html>
