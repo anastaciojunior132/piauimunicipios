@@ -93,6 +93,20 @@
       border-bottom: 1px solid #eee;
     }
     #listaMunicipios div:hover { background-color: #ddd; }
+
+    /* ===== AJUSTE PARA CELULAR ===== */
+    @media (max-width: 600px) {
+      #searchMunicipio {
+        width: calc(100vw - 30px);
+        font-size: 16px;
+        padding: 5px 15px;
+      }
+      #listaMunicipios {
+        width: calc(100vw - 30px);
+        font-size: 14px;
+        max-height: 150px;
+      }
+    }
   </style>
 </head>
 <body>
