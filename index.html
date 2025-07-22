@@ -90,16 +90,16 @@
     }
     #listaMunicipios div:hover { background-color: #ddd; }
     #coords {
-  position: absolute;
-  bottom: 50px; /* subiu para não ficar na mesma altura da escala */
-  left: 10px;
-  background: rgba(255, 255, 255, 0.5); /* fundo branco semi-transparente */
-  padding: 5px 8px;
-  font-size: 13px;
-  border-radius: 4px;
-  border: 1px solid rgba(204, 204, 204, 0.5);
-  z-index: 1000;
-}
+      position: absolute;
+      bottom: 50px; /* subiu para não ficar na mesma altura da escala */
+      left: 10px;
+      background: rgba(255, 255, 255, 0.5); /* fundo branco semi-transparente */
+      padding: 5px 8px;
+      font-size: 13px;
+      border-radius: 4px;
+      border: 1px solid rgba(204, 204, 204, 0.5);
+      z-index: 1000;
+    }
   </style>
 </head>
 <body>
@@ -116,6 +116,7 @@
   <script src="https://unpkg.com/leaflet-ajax/dist/leaflet.ajax.min.js"></script>
   <!-- JSZip para ler KMZ -->
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tokml@0.4.0/tokml.js"></script> <!-- Você usa tokml, então inclua -->
 
   <script>
     const map = L.map('map').setView([-7, -42], 7);
@@ -128,10 +129,29 @@
     };
     north.addTo(map);
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    // Camadas base
+    const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© OpenStreetMap contributors'
-    }).addTo(map);
+    });
 
+    const esriSat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      attribution: 'Tiles © Esri'
+    });
+
+    const esriTerrain = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Terrain_Base/MapServer/tile/{z}/{y}/{x}', {
+      attribution: 'Tiles © Esri'
+    });
+
+    const esriRoad = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+      attribution: 'Tiles © Esri'
+    });
+
+    // Define camada padrão (OpenStreetMap)
+    osmLayer.addTo(map);
+
+    /* =========================
+       SEU CÓDIGO EXISTENTE PARA TERRITÓRIOS, MUNICÍPIOS, ETC...
+       ========================= */
     const territorioPalette = [
       '#1f78b4', '#e31a1c', '#33a02c', '#ff7f00',
       '#6a3d9a', '#b15928', '#a6cee3', '#b2df8a',
@@ -247,10 +267,10 @@
     });
     municipiosLayer.addTo(map);
 
+    /* ================== Busca Fuzzy =================== */
     const searchInput = document.getElementById('searchMunicipio');
     const listaMunicipios = document.getElementById('listaMunicipios');
 
-    // Função para calcular distância de Levenshtein (similaridade)
     function levenshtein(a, b) {
       const matrix = [];
       for(let i = 0; i <= b.length; i++){ matrix[i] = [i]; }
@@ -268,7 +288,6 @@
       return matrix[b.length][a.length];
     }
 
-    // Atualiza lista com fuzzy search
     searchInput.addEventListener('input', function () {
       const termo = this.value.trim().toLowerCase();
       listaMunicipios.innerHTML = '';
@@ -314,14 +333,12 @@
       listaMunicipios.style.display = 'block';
     });
 
-    // Esconde lista ao clicar fora
     document.addEventListener('click', (e) => {
       if (!searchInput.contains(e.target) && !listaMunicipios.contains(e.target)) {
         listaMunicipios.style.display = 'none';
       }
     });
 
-    // Mantém evento Enter pra buscar exata
     searchInput.addEventListener('keypress', function(e) {
       if (e.key === 'Enter') {
         const termo = this.value.trim().toLowerCase();
@@ -357,7 +374,12 @@
     /* ==============================
        CONTROLE DE CAMADAS
        ============================== */
-    const baseMaps = {}; 
+    const baseMaps = {
+      "OpenStreetMap": osmLayer,
+      "Esri Satélite": esriSat,
+      "Esri Terrain": esriTerrain,
+      "Esri Road": esriRoad
+    }; 
     const overlayMaps = {
       "Territórios": territoriosLayer,
       "Municípios": municipiosLayer,
@@ -366,7 +388,7 @@
     };
     const layersControl = L.control.layers(baseMaps, overlayMaps).addTo(map);
 
-   function addLegend() {
+    function addLegend() {
       const legend = L.control({ position: 'bottomright' });
       legend.onAdd = function () {
         const div = L.DomUtil.create('div', 'legend');
