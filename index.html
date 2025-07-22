@@ -26,7 +26,7 @@
     }
     #downloadBtn {
       position: absolute;
-      top: 100px;
+      top: 10px;
       left: 10px;
       background: white;
       padding: 5px 10px;
@@ -58,16 +58,13 @@
       margin-right: 10px;
       margin-top: 10px;
     }
-
-    /* === ALTERADO PARA FICAR VISÍVEL EM TELAS PEQUENAS === */
     #searchMunicipio {
       position: absolute;
       top: 30px;
-      left: 10px;
+      left: 1000px;
       z-index: 3000;
       padding: 5px 20px;
       width: 180px;
-      max-width: 70vw;
       border: 1px solid #ccc;
       border-radius: 40px;
       font-size: 20px;
@@ -75,12 +72,11 @@
     #listaMunicipios {
       position: absolute;
       top: 70px;
-      left: 10px;
+      left: 1000px;
       z-index: 4000;
       max-height: 200px;
       overflow-y: auto;
       width: 180px;
-      max-width: 70vw;
       background: white;
       border: 1px solid #ccc;
       border-radius: 5px;
@@ -110,8 +106,535 @@
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 
   <script>
-    /* Todo o seu JavaScript permanece inalterado */
-    // ...
+    const map = L.map('map').setView([-7, -42], 7);
+    L.control.scale().addTo(map);
+
+    const north = L.control({position: "topright"});
+    north.onAdd = function(map) {
+      const div = L.DomUtil.create("div", "north-arrow");
+      return div;
+    };
+    north.addTo(map);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    const territorioPalette = [
+      '#1f78b4', '#e31a1c', '#33a02c', '#ff7f00',
+      '#6a3d9a', '#b15928', '#a6cee3', '#b2df8a',
+      '#fb9a99', '#fdbf6f'
+    ];
+
+    const territorioColors = [];
+    let colorIndex = 0;
+
+    function getColorForTerritorio(nome) {
+      let terr = territorioColors.find(t => t.nome === nome);
+      if (!terr) {
+        terr = { nome, cor: territorioPalette[colorIndex % territorioPalette.length] };
+        territorioColors.push(terr);
+        colorIndex++;
+      }
+      return terr.cor;
+    }
+
+    function generateInfoContent(properties) {
+      let content = "<b>Atributos:</b><br>";
+      for (const key in properties) {
+        content += `<b>${key}:</b> ${properties[key]}<br>`;
+      }
+      return content;
+    }
+
+    function onEachFeaturePopup(feature, layer) {
+      if (feature.properties) {
+        const popupContent = generateInfoContent(feature.properties) + 
+          `<button class="download-btn" style="margin-top:5px;">Baixar KML desta feição</button>`;
+        layer.bindPopup(popupContent);
+
+        layer.on('popupopen', () => {
+          const btn = document.querySelector('.download-btn');
+          if (btn) {
+            btn.onclick = () => {
+              const kml = tokml({ type: "FeatureCollection", features: [feature] });
+              const blob = new Blob([kml], { type: "application/vnd.google-earth.kml+xml" });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = "feicao.kml";
+              a.click();
+              URL.revokeObjectURL(url);
+            };
+          }
+        });
+      }
+    }
+
+    function styleTerritorios(feature) {
+      const nome = feature.properties.NM_TD || "Território";
+      return {
+        color: getColorForTerritorio(nome),
+        weight: 2,
+        fillColor: getColorForTerritorio(nome),
+        fillOpacity: 0.4
+      };
+    }
+
+    const territoriosLayer = new L.GeoJSON.AJAX("territorios.geojson", { 
+      style: styleTerritorios,
+      onEachFeature: onEachFeaturePopup
+    });
+
+    territoriosLayer.on('data:loaded', addLegend);
+    territoriosLayer.addTo(map);
+
+    function styleMunicipios() {
+      return { color: '#000', weight: 1.5, fillOpacity: 0 };
+    }
+
+    function highlightFeature(e) {
+      const layer = e.target;
+      layer.setStyle({ weight: 3, color: '#666', fillOpacity: 0.1 });
+      layer.bringToFront();
+    }
+
+    function resetHighlight(e) {
+      municipiosLayer.resetStyle(e.target);
+    }
+
+    function onEachMunicipio(feature, layer) {
+      layer.on({
+        mouseover: highlightFeature,
+        mouseout: resetHighlight
+      });
+      if (feature.properties) {
+        layer.bindPopup(generateInfoContent(feature.properties) +
+          `<button class="download-btn" style="margin-top:5px;">Baixar KML desta feição</button>`);
+        layer.on('popupopen', () => {
+          const btn = document.querySelector('.download-btn');
+          if (btn) {
+            btn.onclick = () => {
+              const kml = tokml({ type: "FeatureCollection", features: [feature] });
+              const blob = new Blob([kml], { type: "application/vnd.google-earth.kml+xml" });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = "feicao.kml";
+              a.click();
+              URL.revokeObjectURL(url);
+            };
+          }
+        });
+      }
+    }
+
+    const municipiosLayer = new L.GeoJSON.AJAX("municipios.geojson", { 
+      style: styleMunicipios,
+      onEachFeature: onEachMunicipio
+    });
+    municipiosLayer.addTo(map);
+
+    const searchInput = document.getElementById('searchMunicipio');
+    const listaMunicipios = document.getElementById('listaMunicipios');
+
+    // Função para calcular distância de Levenshtein (similaridade)
+    function levenshtein(a, b) {
+      const matrix = [];
+      for(let i = 0; i <= b.length; i++){ matrix[i] = [i]; }
+      for(let j = 0; j <= a.length; j++){ matrix[0][j] = j; }
+      for(let i = 1; i <= b.length; i++){
+        for(let j = 1; j <= a.length; j++){
+          if(b.charAt(i-1) === a.charAt(j-1)){
+            matrix[i][j] = matrix[i-1][j-1];
+          } else {
+            matrix[i][j] = Math.min(matrix[i-1][j-1] + 1,
+              Math.min(matrix[i][j-1] + 1, matrix[i-1][j] +1));
+          }
+        }
+      }
+      return matrix[b.length][a.length];
+    }
+
+    // Atualiza lista com fuzzy search
+    searchInput.addEventListener('input', function () {
+      const termo = this.value.trim().toLowerCase();
+      listaMunicipios.innerHTML = '';
+      if (!termo) {
+        listaMunicipios.style.display = 'none';
+        return;
+      }
+
+      const resultados = [];
+
+      municipiosLayer.eachLayer(layer => {
+        const nomeMun = layer.feature.properties.NM_MUN;
+        if (nomeMun) {
+          const nomeLower = nomeMun.toLowerCase();
+          if (nomeLower.includes(termo)) {
+            resultados.push({ nome: nomeMun, layer });
+          } else {
+            const dist = levenshtein(termo, nomeLower);
+            if (dist <= 3) {
+              resultados.push({ nome: nomeMun, layer });
+            }
+          }
+        }
+      });
+
+      if (resultados.length === 0) {
+        listaMunicipios.style.display = 'none';
+        return;
+      }
+
+      resultados.forEach(item => {
+        const div = document.createElement('div');
+        div.textContent = item.nome;
+        div.addEventListener('click', () => {
+          map.fitBounds(item.layer.getBounds());
+          item.layer.openPopup();
+          listaMunicipios.style.display = 'none';
+          searchInput.value = item.nome;
+        });
+        listaMunicipios.appendChild(div);
+      });
+
+      listaMunicipios.style.display = 'block';
+    });
+
+    // Esconde lista ao clicar fora
+    document.addEventListener('click', (e) => {
+      if (!searchInput.contains(e.target) && !listaMunicipios.contains(e.target)) {
+        listaMunicipios.style.display = 'none';
+      }
+    });
+
+    // Mantém evento Enter pra buscar exata
+    searchInput.addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') {
+        const termo = this.value.trim().toLowerCase();
+        if (!termo) return;
+
+        let achou = false;
+        municipiosLayer.eachLayer(layer => {
+          const nomeMun = layer.feature.properties.NM_MUN;
+          if (nomeMun && nomeMun.toLowerCase() === termo) {
+            map.fitBounds(layer.getBounds());
+            layer.openPopup();
+            achou = true;
+          }
+        });
+        if (!achou) alert('Município não encontrado!');
+        listaMunicipios.style.display = 'none';
+      }
+    });
+
+    const litigioLayer = new L.GeoJSON.AJAX("litigio.geojson", { 
+      color: 'red', weight: 2, onEachFeature: onEachFeaturePopup
+    });
+    litigioLayer.addTo(map);
+
+    const linhaImperialLayer = new L.GeoJSON.AJAX("linha_imperial.geojson", { 
+      color: 'blue', weight: 2, dashArray: '5,5', onEachFeature: onEachFeaturePopup
+    });
+    linhaImperialLayer.addTo(map);
+
+    litigioLayer.on('data:loaded', () => { litigioLayer.bringToFront(); });
+    linhaImperialLayer.on('data:loaded', () => { litigioLayer.bringToFront(); });
+
+    /* ==============================
+       CONTROLE DE CAMADAS (referência)
+       ============================== */
+    const baseMaps = {}; // sem base alternativa por enquanto
+    const overlayMaps = {
+      "Territórios": territoriosLayer,
+      "Municípios": municipiosLayer,
+      "Litígio": litigioLayer,
+      "Linha Imperial": linhaImperialLayer
+    };
+    const layersControl = L.control.layers(baseMaps, overlayMaps).addTo(map);
+
+   function addLegend() {
+  const legend = L.control({ position: 'bottomright' });
+  legend.onAdd = function () {
+    const div = L.DomUtil.create('div', 'legend');
+    div.innerHTML = '<b>Territórios</b><br>';
+    territorioColors.forEach(t => {
+      div.innerHTML += `<i style="background:${t.cor}"></i> ${t.nome}<br>`;
+    });
+    // Texto adicional abaixo
+    div.innerHTML += '<hr style="margin:5px 0;">';
+    div.innerHTML += '<small>Coordenação de Cartografia e Geoinformação<br>CCGEO/CIET/SEPLAN</small>';
+    return div;
+  };
+  legend.addTo(map);
+}
+
+    const downloadBtn = document.getElementById("downloadBtn");
+    if (downloadBtn) {
+      downloadBtn.addEventListener("click", () => {
+        const combined = {
+          type: "FeatureCollection",
+          features: []
+        };
+        [territoriosLayer, municipiosLayer, litigioLayer, linhaImperialLayer].forEach(layerGroup => {
+          layerGroup.eachLayer(l => {
+            if (l.feature) combined.features.push(l.feature);
+          });
+        });
+        const kml = tokml(combined);
+        const blob = new Blob([kml], { type: "application/vnd.google-earth.kml+xml" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "mapa.kml";
+        a.click();
+        URL.revokeObjectURL(url);
+      });
+    }
+
+    const uploadBtn = document.getElementById('uploadBtn');
+    const uploadInput = document.getElementById('uploadInput');
+    L.DomEvent.disableClickPropagation(uploadBtn);
+    let uploadedLayer = null; /* mantido, mas não mais usado para remover */
+
+    uploadBtn.addEventListener('click', () => {
+      uploadInput.click();
+    });
+
+    /* ==============================
+       Upload MULTI KML/KMZ
+       ============================== */
+    uploadInput.addEventListener('change', async (event) => {
+      const files = event.target.files;
+      if (!files || files.length === 0) return;
+
+      for (const file of files) {
+        const fileName = file.name;
+        const displayName = fileName.replace(/\.(kmz|kml|xml)$/i, '') || 'Upload';
+
+        try {
+          let geojson;
+
+          if (/\.kmz$/i.test(fileName)) {
+            const arrayBuffer = await file.arrayBuffer();
+            geojson = await parseKmzToGeoJSON(arrayBuffer);
+          } else {
+            const text = await file.text();
+            const parser = new DOMParser();
+            const kmlDoc = parser.parseFromString(text, "application/xml");
+            geojson = kmlToGeoJSON(kmlDoc);
+          }
+
+          const newLayer = L.geoJSON(geojson, {
+            style: { color: 'purple', weight: 2, dashArray: '4,4' },
+            onEachFeature: (feature, layer) => {
+              if (feature.properties) {
+                let content = `<b>${displayName}</b><br>`;
+                for (const key in feature.properties) {
+                  content += `<b>${key}:</b> ${feature.properties[key]}<br>`;
+                }
+                layer.bindPopup(content);
+              }
+            }
+          }).addTo(map);
+
+          layersControl.addOverlay(newLayer, displayName);
+
+          map.fitBounds(newLayer.getBounds());
+        } catch (err) {
+          alert("Erro ao carregar arquivo KML/KMZ: " + err.message);
+          console.error(err);
+        }
+      }
+
+      uploadInput.value = "";
+    });
+
+    /* ==============================
+       Conversor KMZ -> GeoJSON
+       ============================== */
+    async function parseKmzToGeoJSON(arrayBuffer) {
+      const zip = await JSZip.loadAsync(arrayBuffer);
+      let kmlEntry = null;
+      zip.forEach((path, entry) => {
+        if (!kmlEntry && /\.kml$/i.test(path)) {
+          kmlEntry = entry;
+        }
+      });
+      if (!kmlEntry) {
+        throw new Error("KMZ não contém arquivo KML.");
+      }
+      const kmlText = await kmlEntry.async("text");
+      const kmlDoc = new DOMParser().parseFromString(kmlText, "application/xml");
+      return kmlToGeoJSON(kmlDoc);
+    }
+
+    /* ==============================
+       Conversor KML -> GeoJSON (simplificado)
+       ============================== */
+    function kmlToGeoJSON(xml) {
+      const geojson = { type: "FeatureCollection", features: [] };
+      const placemarks = xml.getElementsByTagName("Placemark");
+      for (let i = 0; i < placemarks.length; i++) {
+        const pm = placemarks[i];
+        const name = pm.getElementsByTagName("name")[0]?.textContent || "";
+
+        // ExtendedData (atributos)
+        const props = { name };
+        const extDatas = pm.getElementsByTagName("ExtendedData");
+        if (extDatas.length) {
+          const dataNodes = extDatas[0].getElementsByTagName("Data");
+          for (let d = 0; d < dataNodes.length; d++) {
+            const dn = dataNodes[d];
+            const attrName = dn.getAttribute("name") || `attr_${d}`;
+            const valNode = dn.getElementsByTagName("value")[0];
+            props[attrName] = valNode ? valNode.textContent : "";
+          }
+        }
+
+        // Procura geometria
+        let geometry = null;
+
+        // Polygon
+        const polygons = pm.getElementsByTagName("Polygon");
+        if (polygons.length > 0) {
+          const coords = getKmlPolygonCoords(polygons[0]);
+          geometry = { type: "Polygon", coordinates: coords };
+        }
+
+        // LineString (se não tiver polygon)
+        if (!geometry) {
+          const lines = pm.getElementsByTagName("LineString");
+          if (lines.length > 0) {
+            const coords = getKmlCoords(lines[0]);
+            geometry = { type: "LineString", coordinates: coords };
+          }
+        }
+
+        // Point (fallback)
+        if (!geometry) {
+          const points = pm.getElementsByTagName("Point");
+          if (points.length > 0) {
+            const coords = getKmlCoords(points[0]);
+            geometry = { type: "Point", coordinates: coords[0] };
+          }
+        }
+
+        if (!geometry) continue; // sem geom, ignora
+
+        geojson.features.push({
+          type: "Feature",
+          geometry,
+          properties: props
+        });
+      }
+      return geojson;
+    }
+
+    // Extrai coords (lon,lat) de Polygon incluindo holes
+    function getKmlPolygonCoords(polyNode) {
+      const rings = [];
+      const outer = polyNode.getElementsByTagName("outerBoundaryIs");
+      if (outer.length) {
+        const ring = getKmlLinearRingCoords(outer[0]);
+        if (ring.length) rings.push(ring);
+      }
+      const inners = polyNode.getElementsByTagName("innerBoundaryIs");
+      for (let i = 0; i < inners.length; i++) {
+        const ring = getKmlLinearRingCoords(inners[i]);
+        if (ring.length) rings.push(ring);
+      }
+      return rings;
+    }
+
+    function getKmlLinearRingCoords(boundaryNode) {
+      const lr = boundaryNode.getElementsByTagName("LinearRing");
+      if (!lr.length) return [];
+      return getKmlCoords(lr[0]);
+    }
+
+    // Extrai lista de coords [lon,lat] de um nó com <coordinates>
+    function getKmlCoords(node) {
+      const coordNode = node.getElementsByTagName("coordinates")[0];
+      if (!coordNode) return [];
+      const txt = coordNode.textContent.trim();
+      if (!txt) return [];
+      return txt
+        .split(/\s+/)
+        .map(pair => {
+          const nums = pair.split(",").map(Number);
+          return [nums[0], nums[1]]; // ignora altitude se houver
+        });
+    }
+
+    /* ==============================
+       GeoJSON -> KML (já estava no seu código)
+       ============================== */
+    function tokml(geojson) {
+      return `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    ${geojson.features.map(f => featureToKml(f)).join('')}
+  </Document>
+</kml>`;
+    }
+
+    function featureToKml(feature) {
+      const props = Object.entries(feature.properties || {})
+        .map(([k, v]) => `<Data name="${xmlEsc(k)}"><value>${xmlEsc(v)}</value></Data>`).join('');
+      const extData = props ? `<ExtendedData>${props}</ExtendedData>` : '';
+      const geom = geometryToKml(feature.geometry);
+      return `<Placemark>${extData}${geom}</Placemark>`;
+    }
+
+    function geometryToKml(geom) {
+      if (!geom) return '';
+      switch (geom.type) {
+        case 'Polygon': return polygonToKml(geom.coordinates);
+        case 'MultiPolygon': return geom.coordinates.map(coords => polygonToKml(coords)).join('');
+        case 'LineString': return lineToKml(geom.coordinates);
+        case 'MultiLineString': return geom.coordinates.map(coords => lineToKml(coords)).join('');
+        case 'Point': return pointToKml(geom.coordinates);
+        case 'MultiPoint': return geom.coordinates.map(coords => pointToKml(coords)).join('');
+        default: return '';
+      }
+    }
+
+    function polygonToKml(coords) {
+      const outer = coords[0] || [];
+      const holes = coords.slice(1) || [];
+      let k = '<Polygon><outerBoundaryIs><LinearRing><coordinates>';
+      k += coordArrayToStr(outer);
+      k += '</coordinates></LinearRing></outerBoundaryIs>';
+      holes.forEach(h => {
+        k += '<innerBoundaryIs><LinearRing><coordinates>' + coordArrayToStr(h) + '</coordinates></LinearRing></innerBoundaryIs>';
+      });
+      k += '</Polygon>';
+      return k;
+    }
+
+    function lineToKml(coords) {
+      return '<LineString><coordinates>' + coordArrayToStr(coords) + '</coordinates></LineString>';
+    }
+
+    function pointToKml(coord) {
+      return '<Point><coordinates>' + coord.join(',') + '</coordinates></Point>';
+    }
+
+    function coordArrayToStr(arr) {
+      return arr.map(c => c.join(',')).join(' ');
+    }
+
+    function xmlEsc(v) {
+      if (v === null || v === undefined) return '';
+      return String(v)
+        .replace(/&/g,'&amp;')
+        .replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;')
+        .replace(/"/g,'&quot;')
+        .replace(/'/g,'&apos;');
+    }
   </script>
 </body>
 </html>
