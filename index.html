@@ -131,6 +131,8 @@
   background: transparent; /* sem fundo */
   width: 150px;
   height: 150px;
+  transform: scale(0.6);  /* 0.6 = 60% do tamanho */
+  transform-origin: center;  /* mantém centralizado */
 }
   </style>
 </head>
@@ -543,10 +545,10 @@ rosaSBG.onAdd = function () {
     
 <svg width="140" height="140" viewBox="0 0 140 140" xmlns="http://www.w3.org/2000/svg">
   <!-- Triângulo apontando para cima -->
-  <polygon points="70,40 90,80 50,80" fill="red" />
+  <polygon points="70,40 90,80 50,80" fill="black" />
 
   <!-- Letra N acima do triângulo, centralizada -->
-  <text x="70" y="30" font-size="36" font-weight="bold" fill="red" stroke="black" stroke-width="1" text-anchor="middle" dominant-baseline="middle">N</text>
+  <text x="70" y="30" font-size="36" font-weight="bold" fill="black" stroke="black" stroke-width="1" text-anchor="middle" dominant-baseline="middle">N</text>
 </svg>
 
 
