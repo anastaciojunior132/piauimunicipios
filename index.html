@@ -124,6 +124,14 @@
   margin-top: 150px !important; /* Ajuste o valor como preferir */
   margin-left: 10px !important; /* Pode ajustar para mover para os lados */
 }
+     .rosa-sbg {
+  pointer-events: none;  /* Não atrapalha cliques no mapa */
+  margin-bottom: 60px;   /* sobe a rosa do canto inferior */
+  margin-left: 10px;     /* distancia da borda esquerda */
+  background: transparent; /* sem fundo */
+  width: 150px;
+  height: 150px;
+}
   </style>
 </head>
 <body>
@@ -527,6 +535,25 @@
       // tenta enquadrar
       try { map.fitBounds(kmlLayer.getBounds()); } catch(_) {}
     }                                                             // <-- ADIÇÃO
+     // Controle para Rosa dos Ventos SBG em SVG
+const rosaSBG = L.control({ position: "bottomleft" }); 
+rosaSBG.onAdd = function () {
+  const div = L.DomUtil.create("div", "rosa-sbg");
+  div.innerHTML = `
+    
+<svg width="140" height="140" viewBox="0 0 140 140" xmlns="http://www.w3.org/2000/svg">
+  <!-- Triângulo apontando para cima -->
+  <polygon points="70,40 90,80 50,80" fill="red" />
+
+  <!-- Letra N acima do triângulo, centralizada -->
+  <text x="70" y="30" font-size="36" font-weight="bold" fill="red" stroke="black" stroke-width="1" text-anchor="middle" dominant-baseline="middle">N</text>
+</svg>
+
+
+  `;
+  return div;
+};
+rosaSBG.addTo(map);
   </script>
 </body>
 </html>
