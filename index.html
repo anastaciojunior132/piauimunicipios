@@ -425,19 +425,43 @@
     const layersControl = L.control.layers(baseMaps, overlayMaps).addTo(map);
 
     function addLegend() {
-      const legend = L.control({ position: 'bottomright' });
-      legend.onAdd = function () {
-        const div = L.DomUtil.create('div', 'legend');
-        div.innerHTML = '<b>Territórios</b><br>';
-        territorioColors.forEach(t => {
-          div.innerHTML += `<i style="background:${t.cor}"></i> ${t.nome}<br>`;
+  const legend = L.control({ position: 'bottomright' });
+  legend.onAdd = function () {
+    const div = L.DomUtil.create('div', 'legend');
+    div.innerHTML = '<b>Territórios</b><br>';
+    
+    territorioColors.forEach(t => {
+      div.innerHTML += `<div class="territorio-item" data-nome="${t.nome}">
+                          <i style="background:${t.cor}"></i> ${t.nome}
+                        </div>`;
+    });
+
+    div.innerHTML += '<hr style="margin:5px 0;">';
+    div.innerHTML += '<small>Coordenação de Cartografia e Geoinformação<br>CCGEO/CIET/SEPLAN</small>';
+    return div;
+  };
+  legend.addTo(map);
+
+  // Adiciona eventos de clique nos nomes
+  setTimeout(() => {
+    document.querySelectorAll('.territorio-item').forEach(item => {
+      item.addEventListener('click', () => {
+        const nome = item.getAttribute('data-nome');
+        territoriosLayer.eachLayer(layer => {
+          if (layer.feature && layer.feature.properties.NM_TD === nome) {
+            map.fitBounds(layer.getBounds());
+            layer.setStyle({
+              weight: 4,
+              color: 'red',
+              fillOpacity: 0.6
+            });
+            setTimeout(() => territoriosLayer.resetStyle(layer), 3000);
+          }
         });
-        div.innerHTML += '<hr style="margin:5px 0;">';
-        div.innerHTML += '<small>Coordenação de Cartografia e Geoinformação<br>CCGEO/CIET/SEPLAN</small>';
-        return div;
-      };
-      legend.addTo(map);
-    }
+      });
+    });
+  }, 300);
+}
 
     /* ========== Função Lat/Lon -> UTM ========== */
     function latLonToUTM(lat, lon) {
