@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -60,10 +61,10 @@
     }
     #searchMunicipio {
       position: absolute;
-      top: 30px;
+      top: 20px;
       left: 1000px;
       z-index: 3000;
-      padding: 5px 20px;
+      padding: 8px 40px;
       width: 180px;
       border: 1px solid #ccc;
       border-radius: 40px;
@@ -103,7 +104,7 @@
     .map-title {
       position: absolute;
       top: 10px;
-      left: 50%;
+      left: 10%;
       transform: translateX(-50%);
       background: rgba(255, 255, 255, 0.9);
       padding: 8px 16px;
@@ -115,6 +116,14 @@
       z-index: 2000;
       text-align: center;
     }
+    .leaflet-control-layers {
+  margin-top: 0px !important;
+  
+}
+.leaflet-control-zoom {
+  margin-top: 150px !important; /* Ajuste o valor como preferir */
+  margin-left: 10px !important; /* Pode ajustar para mover para os lados */
+}
   </style>
 </head>
 <body>
@@ -134,8 +143,7 @@
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/tokml@0.4.0/tokml.js"></script> <!-- Você usa tokml, então inclua -->
   <!-- leaflet-omnivore para ler KML/KMZ em Leaflet -->  <!-- <-- ADIÇÃO -->
-  <script src="https://api.mapbox.com/mapbox.js/plugins/leaflet-omnivore/v0.3.4/leaflet-omnivore.min.js"></script> <!-- <-- ADIÇÃO -->
-
+  <script src="https://unpkg.com/leaflet-omnivore@0.3.4/leaflet-omnivore.min.js"></script>
   <script>
     const map = L.map('map').setView([-7, -42], 7);
     L.control.scale().addTo(map);
