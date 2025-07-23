@@ -13,13 +13,13 @@
       background: white;
       line-height: 18px;
       color: #333;
-      padding: 10px;
+      padding: 30px;
       font-size: 14px;
       border-radius: 6px;
       box-shadow: 0 0 6px rgba(0,0,0,0.3);
     }
     .legend i {
-      width: 18px;
+      width: 58px;
       height: 18px;
       float: left;
       margin-right: 8px;
@@ -146,6 +146,7 @@
   
   <input type="text" id="searchMunicipio" placeholder="Pesquisar município" />
   <div id="listaMunicipios"></div>
+  <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
 
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script src="https://unpkg.com/leaflet-ajax/dist/leaflet.ajax.min.js"></script>
@@ -255,8 +256,7 @@
       layer.setStyle({
         color: 'red',
         weight: 4,
-         fillColor: getColorForTerritorio(nome), // Mantém a cor original
-        fillOpacity: 1        // Cor mais "forte" (mais opaca)
+        fillOpacity: 1
       });
     } else {
       layer.setStyle({
@@ -280,12 +280,17 @@
       return { color: '#000', weight: 1.5, fillOpacity: 0 };
     }
 
-    function highlightFeature(e) {
-      const layer = e.target;
-      layer.setStyle({ weight: 3, color: '#666', fillOpacity: 0.1 });
-      layer.bringToFront();
-    }
-
+   function highlightFeature(e) {
+  const layer = e.target;
+  layer.setStyle({ 
+    weight: 4,             // aumentar a espessura da borda
+    color: '#ff6600',      // cor laranja forte para a borda
+    fillColor: '#ff6600',  // mesmo laranja para preenchimento
+    fillOpacity: 0.5       // preenchimento semi-transparente
+  });
+  layer.bringToFront();
+}
+let municipioSelecionado = null;
     function resetHighlight(e) {
       municipiosLayer.resetStyle(e.target);
     }
@@ -377,11 +382,25 @@
         const div = document.createElement('div');
         div.textContent = item.nome;
         div.addEventListener('click', () => {
-          map.fitBounds(item.layer.getBounds());
-          item.layer.openPopup();
-          listaMunicipios.style.display = 'none';
-          searchInput.value = item.nome;
-        });
+  map.fitBounds(item.layer.getBounds());
+  item.layer.openPopup();
+
+  if (municipioSelecionado) {
+    municipiosLayer.resetStyle(municipioSelecionado);
+  }
+
+  item.layer.setStyle({
+    weight: 4,
+    color: '#ff6600',
+    fillColor: '#ff6600',
+    fillOpacity: 0.5
+  });
+
+  municipioSelecionado = item.layer;
+
+  listaMunicipios.style.display = 'none';
+  searchInput.value = item.nome;
+});
         listaMunicipios.appendChild(div);
       });
 
@@ -450,11 +469,18 @@
     div.innerHTML = '<b>Territórios</b><br>';
 
     territorioColors.forEach(t => {
-      div.innerHTML += `
-        <div class="territorio-item" data-nome="${t.nome}" style="cursor:pointer; margin-bottom:4px;">
-          <i style="background:${t.cor}; display:inline-block; width:18px; height:18px; margin-right:5px;"></i>
-          ${t.nome}
-        </div>`;
+    div.innerHTML += `
+  <div class="territorio-item" data-nome="${t.nome}" style="
+    cursor:pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+  ">
+    <i style="background:${t.cor}; width:24px; height:24px; display:inline-block;"></i>
+    <span style="font-size: 13px;">${t.nome}</span>
+  </div>
+`;
     });
 
     div.innerHTML += '<hr style="margin:5px 0;">';
@@ -616,6 +642,59 @@ rosaSBG.onAdd = function () {
 rosaSBG.addTo(map);
 map.on('movestart', () => {
   territoriosLayer.resetStyle();
+});
+let estadoPiauiLayer;
+
+territoriosLayer.on('data:loaded', function() {
+  const allFeatures = territoriosLayer.toGeoJSON().features;
+
+  // Junta todas as geometrias das feições
+  let merged = allFeatures[0];
+  for (let i = 1; i < allFeatures.length; i++) {
+    merged = turf.union(merged, allFeatures[i]);
+  }
+
+  // Cria uma nova camada com a geometria mesclada
+  estadoPiauiLayer = L.geoJSON(merged, {
+   style: {
+  color: 'yellow',      // cor da linha
+  weight: 3,            // espessura
+  fillColor: 'transparent',  // sem preenchimento
+  fillOpacity: 0        // totalmente transparente
+},
+    onEachFeature: function (feature, layer) {
+      layer.bindPopup("Estado do Piauí");
+    }
+  });
+
+  estadoPiauiLayer.addTo(map);
+  layersControl.addOverlay(estadoPiauiLayer, "Estado do Piauí");
+});
+territoriosLayer.on('data:loaded', function () {
+  const features = territoriosLayer.toGeoJSON().features;
+
+  // Mescla todos os territórios (Piauí)
+  let piauiUnion = features[0];
+  for (let i = 1; i < features.length; i++) {
+    piauiUnion = turf.union(piauiUnion, features[i]);
+  }
+
+  // Cria uma grande área que cobre todo o Brasil (ou o mundo)
+  const worldBounds = turf.bboxPolygon([-90, -60, -25, 15]); // Aproximação do Brasil/América do Sul
+
+  // Subtrai o Piauí da camada mundial para fazer um buraco
+  const mask = turf.difference(worldBounds, piauiUnion);
+
+  // Adiciona camada escurecida ao mapa
+  const opacidadeGeralLayer = L.geoJSON(mask, {
+    style: {
+      fillColor: 'black',
+      fillOpacity: 0.5,
+      color: 'black',
+      weight: 0
+    },
+    interactive: false // evita interferência nos cliques
+  }).addTo(map);
 });
   </script>
 </body>
