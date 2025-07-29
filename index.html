@@ -7,6 +7,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <style>
+    * {
+  font-family: Arial, sans-serif !important;
+}
     body, html { margin: 0; padding: 0; height: 100%; }
     #map { height: 100%; width: 100%; }
     .legend {
@@ -64,8 +67,8 @@
       top: 20px;
       left: 1000px;
       z-index: 3000;
-      padding: 8px 40px;
-      width: 180px;
+      padding: 12px 48px;
+      width: 480px;
       border: 1px solid #ccc;
       border-radius: 40px;
       font-size: 20px;
@@ -73,11 +76,11 @@
     #listaMunicipios {
       position: absolute;
       top: 70px;
-      left: 1000px;
+      left: 1080px;
       z-index: 4000;
       max-height: 200px;
       overflow-y: auto;
-      width: 180px;
+      width: 480px;
       background: white;
       border: 1px solid #ccc;
       border-radius: 5px;
@@ -104,7 +107,7 @@
     .map-title {
       position: absolute;
       top: 10px;
-      left: 10%;
+      left: 10.5%;
       transform: translateX(-50%);
       background: rgba(255, 255, 255, 0.9);
       padding: 8px 16px;
@@ -133,6 +136,23 @@
   height: 150px;
   transform: scale(0.6);  /* 0.6 = 60% do tamanho */
   transform-origin: center;  /* mantém centralizado */
+}
+.territorio-item {
+  cursor: pointer; /* já tem no seu código */
+  transition: color 0.3s;
+}
+
+.territorio-item:hover {
+  color: #007bff; /* muda a cor para azul ao passar o mouse */
+  font-weight: bold;
+}
+#searchMunicipio,
+#listaMunicipios {
+  font-family: Arial, sans-serif;
+}
+#listaMunicipios div.highlighted {
+  background-color: #007bff;
+  color: white;
 }
   </style>
 </head>
@@ -198,16 +218,16 @@
     const territorioColors = [];
     let colorIndex = 0;
 
-    function getColorForTerritorio(nome) {
-      let terr = territorioColors.find(t => t.nome === nome);
-      if (!terr) {
-        terr = { nome, cor: territorioPalette[colorIndex % territorioPalette.length] };
-        territorioColors.push(terr);
-        colorIndex++;
-      }
-      return terr.cor;
-    }
-
+    function getColorForTerritorio(nome, codigo = null) {
+  let terr = territorioColors.find(t => t.nome === nome);
+  if (!terr) {
+    const display = codigo ? `TD ${codigo} – ${nome}` : nome;
+    terr = { nome, codigo, label: display, cor: territorioPalette[colorIndex % territorioPalette.length] };
+    territorioColors.push(terr);
+    colorIndex++;
+  }
+  return terr.cor;
+}
     function generateInfoContent(properties) {
       let content = "<b>Atributos:</b><br>";
       for (const key in properties) {
@@ -240,15 +260,16 @@
       }
     }
 
-    function styleTerritorios(feature) {
-      const nome = feature.properties.NM_TD || "Território";
-      return {
-        color: getColorForTerritorio(nome),
-        weight: 2,
-        fillColor: getColorForTerritorio(nome),
-        fillOpacity: 0.4
-      };
-    }
+   function styleTerritorios(feature) {
+  const nome = feature.properties.NM_TD || "Território";
+  const codigo = feature.properties.fid || "";
+  return {
+    color: getColorForTerritorio(nome, codigo),
+    weight: 2,
+    fillColor: getColorForTerritorio(nome, codigo),
+    fillOpacity: 0.4
+  };
+}
     function highlightTerritory(nome) {
   territoriosLayer.eachLayer(layer => {
     if (layer.feature && layer.feature.properties.NM_TD === nome) {
@@ -268,10 +289,21 @@
   });
 }
 
-    const territoriosLayer = new L.GeoJSON.AJAX("territorios.geojson", { 
-      style: styleTerritorios,
-      onEachFeature: onEachFeaturePopup
-    });
+   function onEachTerritorio(feature, layer) {
+  layer.on({
+    mouseover: highlightFeature,
+    mouseout: function(e) {
+      territoriosLayer.resetStyle(e.target);
+    }
+  });
+
+  onEachFeaturePopup(feature, layer);
+}
+
+const territoriosLayer = new L.GeoJSON.AJAX("territorios.geojson", {
+  style: styleTerritorios,
+  onEachFeature: onEachTerritorio
+});
 
     territoriosLayer.on('data:loaded', addLegend);
     territoriosLayer.addTo(map);
@@ -330,6 +362,8 @@ let municipioSelecionado = null;
     /* ================== Busca Fuzzy =================== */
     const searchInput = document.getElementById('searchMunicipio');
     const listaMunicipios = document.getElementById('listaMunicipios');
+    let highlightedIndex = -1;
+    let currentResultados = [];
 
     function levenshtein(a, b) {
       const matrix = [];
@@ -351,9 +385,12 @@ let municipioSelecionado = null;
     searchInput.addEventListener('input', function () {
       const termo = this.value.trim().toLowerCase();
       listaMunicipios.innerHTML = '';
+highlightedIndex = -1;
+currentResultados = [];
       if (!termo) {
         listaMunicipios.style.display = 'none';
         return;
+        
       }
 
       const resultados = [];
@@ -377,7 +414,7 @@ let municipioSelecionado = null;
         listaMunicipios.style.display = 'none';
         return;
       }
-
+resultados.sort((a, b) => a.nome.localeCompare(b.nome));
       resultados.forEach(item => {
         const div = document.createElement('div');
         div.textContent = item.nome;
@@ -406,6 +443,37 @@ let municipioSelecionado = null;
 
       listaMunicipios.style.display = 'block';
     });
+    searchInput.addEventListener('keydown', function(e) {
+  const itens = listaMunicipios.querySelectorAll('div');
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    if (highlightedIndex < itens.length - 1) {
+      highlightedIndex++;
+      updateHighlight(itens);
+    }
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    if (highlightedIndex > 0) {
+      highlightedIndex--;
+      updateHighlight(itens);
+    }
+  } else if (e.key === 'Enter') {
+    if (highlightedIndex >= 0 && highlightedIndex < currentResultados.length) {
+      itens[highlightedIndex].click();
+    }
+  }
+});
+
+function updateHighlight(itens) {
+  itens.forEach((item, index) => {
+    if (index === highlightedIndex) {
+      item.classList.add('highlighted');
+      item.scrollIntoView({ block: 'nearest' });
+    } else {
+      item.classList.remove('highlighted');
+    }
+  });
+}
 
     document.addEventListener('click', (e) => {
       if (!searchInput.contains(e.target) && !listaMunicipios.contains(e.target)) {
@@ -432,18 +500,44 @@ let municipioSelecionado = null;
       }
     });
 
-    const litigioLayer = new L.GeoJSON.AJAX("litigio.geojson", { 
-      color: 'red', weight: 2, onEachFeature: onEachFeaturePopup
-    });
-    litigioLayer.addTo(map);
+    function onEachLitigio(feature, layer) {
+  layer.on({
+    mouseover: highlightFeature,
+    mouseout: function(e) {
+      litigioLayer.resetStyle(e.target);
+    }
+  });
 
-    const linhaImperialLayer = new L.GeoJSON.AJAX("linha_imperial.geojson", { 
-      color: 'blue', weight: 2, dashArray: '5,5', onEachFeature: onEachFeaturePopup
+  onEachFeaturePopup(feature, layer);
+}
+
+const litigioLayer = new L.GeoJSON.AJAX("litigio.geojson", {
+  style: { color: 'red', weight: 2 },
+  onEachFeature: onEachLitigio
+});
+   
+function onEachImperial(feature, layer) {
+  layer.on({
+    mouseover: highlightFeature,
+    mouseout: function(e) {
+      linhaImperialLayer.resetStyle(e.target);
+    }
+  });
+
+  onEachFeaturePopup(feature, layer);
+}
+
+const linhaImperialLayer = new L.GeoJSON.AJAX("linha_imperial.geojson", {
+  style: { color: 'blue', weight: 2, dashArray: '5,5' },
+  onEachFeature: onEachImperial
     });
     linhaImperialLayer.addTo(map);
+     litigioLayer.addTo(map);
 
-    litigioLayer.on('data:loaded', () => { litigioLayer.bringToFront(); });
-    linhaImperialLayer.on('data:loaded', () => { litigioLayer.bringToFront(); });
+
+litigioLayer.on('data:loaded', () => {
+  litigioLayer.bringToFront();
+});
 
     /* ==============================
        CONTROLE DE CAMADAS
@@ -460,15 +554,17 @@ let municipioSelecionado = null;
       "Litígio": litigioLayer,
       "Linha Imperial": linhaImperialLayer
     };
-    const layersControl = L.control.layers(baseMaps, overlayMaps).addTo(map);
+  const layersControl = L.control.layers(baseMaps, overlayMaps, { collapsed: false }).addTo(map);
 
    function addLegend() {
   const legend = L.control({ position: 'bottomright' });
   legend.onAdd = function () {
     const div = L.DomUtil.create('div', 'legend');
-    div.innerHTML = '<b>Territórios</b><br>';
+    div.innerHTML = '<div style="text-align: center; font-weight: bold; margin-bottom: 5px;">Territórios de Desenvolvimento</div>';
 
-    territorioColors.forEach(t => {
+  territorioColors
+  .sort((a, b) => a.codigo - b.codigo)
+  .forEach(t => {
     div.innerHTML += `
   <div class="territorio-item" data-nome="${t.nome}" style="
     cursor:pointer;
@@ -478,11 +574,10 @@ let municipioSelecionado = null;
     margin-bottom: 6px;
   ">
     <i style="background:${t.cor}; width:24px; height:24px; display:inline-block;"></i>
-    <span style="font-size: 13px;">${t.nome}</span>
+    <span style="font-size: 13px;">${t.label}</span>
   </div>
 `;
-    });
-
+  });
     div.innerHTML += '<hr style="margin:5px 0;">';
     div.innerHTML += '<small>Coordenação de Cartografia e Geoinformação<br>CCGEO/CIET/SEPLAN</small>';
     return div;
@@ -645,55 +740,54 @@ map.on('movestart', () => {
 });
 let estadoPiauiLayer;
 
-territoriosLayer.on('data:loaded', function() {
-  const allFeatures = territoriosLayer.toGeoJSON().features;
+Promise.all([
+  new Promise(resolve => territoriosLayer.on('data:loaded', resolve)),
+  new Promise(resolve => litigioLayer.on('data:loaded', resolve)),
+  new Promise(resolve => linhaImperialLayer.on('data:loaded', resolve))
+]).then(() => {
+  const territoriosFeatures = territoriosLayer.toGeoJSON().features;
+  const litigioFeatures = litigioLayer.toGeoJSON().features;
+  const imperialFeatures = linhaImperialLayer.toGeoJSON().features;
 
-  // Junta todas as geometrias das feições
+  const allFeatures = [...territoriosFeatures, ...litigioFeatures, ...imperialFeatures];
+
   let merged = allFeatures[0];
   for (let i = 1; i < allFeatures.length; i++) {
-    merged = turf.union(merged, allFeatures[i]);
+    try {
+      merged = turf.union(merged, allFeatures[i]);
+    } catch (e) {
+      console.warn('Erro ao unir feições:', e);
+    }
   }
 
-  // Cria uma nova camada com a geometria mesclada
+  // Adiciona camada do Estado do Piauí (com litígio e linha imperial)
   estadoPiauiLayer = L.geoJSON(merged, {
-   style: {
-  color: 'yellow',      // cor da linha
-  weight: 3,            // espessura
-  fillColor: 'transparent',  // sem preenchimento
-  fillOpacity: 0        // totalmente transparente
-},
+    style: {
+      color: 'yellow',
+      weight: 3,
+      fillColor: 'transparent',
+      fillOpacity: 0
+    },
     onEachFeature: function (feature, layer) {
-      layer.bindPopup("Estado do Piauí");
+      layer.bindPopup("Estado do Piauí ");
     }
   });
-
   estadoPiauiLayer.addTo(map);
+estadoPiauiLayer.bringToBack();
   layersControl.addOverlay(estadoPiauiLayer, "Estado do Piauí");
-});
-territoriosLayer.on('data:loaded', function () {
-  const features = territoriosLayer.toGeoJSON().features;
 
-  // Mescla todos os territórios (Piauí)
-  let piauiUnion = features[0];
-  for (let i = 1; i < features.length; i++) {
-    piauiUnion = turf.union(piauiUnion, features[i]);
-  }
+  // Fundo escurecido com "buraco" no Piauí
+  const worldBounds = turf.bboxPolygon([-90, -60, -25, 15]); // Ajustável
+  const mask = turf.difference(worldBounds, merged);
 
-  // Cria uma grande área que cobre todo o Brasil (ou o mundo)
-  const worldBounds = turf.bboxPolygon([-90, -60, -25, 15]); // Aproximação do Brasil/América do Sul
-
-  // Subtrai o Piauí da camada mundial para fazer um buraco
-  const mask = turf.difference(worldBounds, piauiUnion);
-
-  // Adiciona camada escurecida ao mapa
-  const opacidadeGeralLayer = L.geoJSON(mask, {
+  const escurecidoLayer = L.geoJSON(mask, {
     style: {
       fillColor: 'black',
       fillOpacity: 0.5,
       color: 'black',
       weight: 0
     },
-    interactive: false // evita interferência nos cliques
+    interactive: false
   }).addTo(map);
 });
   </script>
