@@ -158,6 +158,7 @@
 </head>
 <body>
   <div id="map"></div>
+  
   <div class="map-title">Mapa Interativo – Territórios e Municípios</div>
   <div id="coords">Lat: -, Lon: -<br>E: -, N: -<br>Fuso: -</div>
 
@@ -228,13 +229,23 @@
   }
   return terr.cor;
 }
-    function generateInfoContent(properties) {
-      let content = "<b>Atributos:</b><br>";
-      for (const key in properties) {
-        content += `<b>${key}:</b> ${properties[key]}<br>`;
-      }
-      return content;
-    }
+function generateInfoContent(properties) {
+  const labels = {
+    NM_MUN: "Município",
+    CD_MUN: "Código do Município",
+    fid: "Código do Território",
+    NM_TD: "Território de Desenvolvimento",
+    AREA_KM2: "Área (km²)"
+    // Adicione outros conforme necessário
+  };
+
+  let content = "<b>Informações:</b><br>";
+  for (const key in properties) {
+    const label = labels[key] || key;
+    content += `<b>${label}:</b> ${properties[key]}<br>`;
+  }
+  return content;
+}
 
     function onEachFeaturePopup(feature, layer) {
       if (feature.properties) {
