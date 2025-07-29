@@ -17,8 +17,10 @@
       line-height: 18px;
       color: #333;
       padding: 30px;
+      overflow-y: auto;
       font-size: 14px;
       border-radius: 6px;
+      max-height: 50vh;
       box-shadow: 0 0 6px rgba(0,0,0,0.3);
     }
     .legend i {
@@ -62,17 +64,30 @@
       margin-right: 10px;
       margin-top: 10px;
     }
-    #searchMunicipio {
-      position: absolute;
-      top: 20px;
-      left: 1000px;
-      z-index: 3000;
-      padding: 12px 48px;
-      width: 480px;
-      border: 1px solid #ccc;
-      border-radius: 40px;
-      font-size: 20px;
-    }
+   #searchMunicipio {
+  position: absolute;
+  top: 1%;
+  left: 40%;
+  z-index: 3000;
+  padding: 0.75em 3em;       /* equivalente a 12px 48px com base na fonte */
+  width: 30vw;               /* largura proporcional à largura da viewport */
+  max-width: 480px;          /* limite máximo igual ao original */
+  min-width: 250px;          /* limite mínimo para não ficar pequeno demais */
+  border: 1px solid #ccc;
+  border-radius: 40px;
+  font-size: 1.25rem;        /* cerca de 20px, mas escalável */
+}
+
+/* Ajustes para telas pequenas */
+@media (max-width: 600px) {
+  #searchMunicipio {
+    left: 50%;               /* centraliza horizontalmente */
+    transform: translateX(-50%);
+    width: 80vw;             /* ocupa 80% da tela pequena */
+    padding: 0.5em 2em;      /* reduz padding para caber melhor */
+    font-size: 1rem;         /* fonte um pouco menor */
+  }
+}
     #listaMunicipios {
       position: absolute;
       top: 70px;
