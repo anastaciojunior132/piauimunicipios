@@ -3,7 +3,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8" />
-  <title>GEO-PI</title>
+  <title>Mapa – Sidebar e Download KML</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <style>
@@ -336,14 +336,50 @@ function generateInfoContent(properties) {
   });
 }
 
-   function onEachTerritorio(feature, layer) {
+function onEachTerritorio(feature, layer) {
   layer.on({
     mouseover: highlightFeature,
-    mouseout: function(e) {
+    mouseout: function (e) {
       territoriosLayer.resetStyle(e.target);
+    },
+    click: function () {
+      const territorioNome = feature.properties?.NM_TD;
+      const territorioCodigo = feature.properties?.fid;
+
+      // Monta lista de municípios do território
+      const municipios = [];
+      municipiosLayer.eachLayer(mLayer => {
+        const p = mLayer.feature?.properties || {};
+        // verifica se NM_TD ou fid são iguais
+        if ((p.NM_TD && territorioNome && p.NM_TD === territorioNome) || 
+            (p.fid && territorioCodigo && p.fid === territorioCodigo)) {
+          municipios.push(p.NM_MUN || "(sem nome)");
+        }
+      });
+
+      // ordena alfabeticamente
+      municipios.sort((a, b) => a.localeCompare(b, 'pt-BR'));
+
+      // popup base (já existia) + lista de municípios
+      const baseHtml = generateInfoContent(feature.properties) +
+        `<button class="download-btn" style="margin-top:5px;">Baixar KML desta feição</button>`;
+
+      const listaHtml = municipios.length
+        ? `<hr><b>Municípios (${municipios.length}):</b>
+           <div style="max-height:150px;overflow:auto;margin-top:6px;">
+             <ul style="margin:0;padding-left:18px;">
+               ${municipios.map(n => `<li>${n}</li>`).join('')}
+             </ul>
+           </div>`
+        : `<hr><i>Nenhum município associado encontrado.</i>`;
+
+      // atualiza o popup do território com a lista
+      layer.bindPopup(baseHtml + listaHtml);
+      layer.openPopup();
     }
   });
 
+  // mantém comportamento padrão do popup
   onEachFeaturePopup(feature, layer);
 }
 
