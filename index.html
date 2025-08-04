@@ -284,6 +284,9 @@
       background-color: #007bff;
       color: white;
     }
+path.leaflet-interactive:focus {
+  outline: none;
+}
   </style>
 </head>
 <body>
@@ -667,63 +670,92 @@ const territoriosLayer = new L.GeoJSON.AJAX("territorios.geojson", {
   layer.bringToFront();
 }
 let municipioSelecionado = null;
-    function resetHighlight(e) {
-      municipiosLayer.resetStyle(e.target);
-    }
 
-   function onEachMunicipio(feature, layer) {
+function resetHighlight(e) {
+  // Só reseta se NÃO for o município selecionado
+  if (municipioSelecionado !== e.target) {
+    municipiosLayer.resetStyle(e.target);
+  }
+}
+
+function onEachMunicipio(feature, layer) {
+  // Tooltip no hover
+  const nome = feature.properties.NM_MUN || "Município desconhecido";
+  layer.bindTooltip(
+    `<b>${nome}</b><br><i>Clique para mais informações</i>`,
+    { sticky: false, direction: 'top', opacity: 0.9 }
+  );
+
+  // Fecha tooltip quando abrir popup
+  layer.on("popupopen", function () {
+    layer.closeTooltip();
+  });
+
+  // Eventos de destaque visual no hover
   layer.on({
     mouseover: highlightFeature,
     mouseout: resetHighlight
   });
 
+  // Evento de clique para manter cor até trocar
+  layer.on("click", function () {
+    // Se já havia um município selecionado, reseta o estilo dele
+    if (municipioSelecionado && municipioSelecionado !== layer) {
+      municipiosLayer.resetStyle(municipioSelecionado);
+    }
+
+    // Marca este como selecionado
+    municipioSelecionado = layer;
+
+    // Aplica estilo de destaque permanente
+    layer.setStyle({
+      weight: 4,
+      color: '#ff6600',
+      fillColor: '#ff6600',
+      fillOpacity: 0.5
+    });
+  });
+
+  // Bind da popup com informações + botão
   if (feature.properties) {
-    // Cria a pop-up com a tabela + botão
     layer.bindPopup(
       generateInfoContent(feature.properties) +
       `<button class="download-btn" style="margin-top:5px;">Baixar KML deste município</button>`
     );
 
-    // Quando a pop-up abrir, associa o evento apenas ao botão dessa pop-up
+    // Lógica do botão "Baixar KML"
     layer.on('popupopen', (e) => {
-      const popupEl = e.popup.getElement(); // pega o elemento da pop-up atual
-      const btn = popupEl.querySelector('.download-btn'); // botão correto
+      const popupEl = e.popup.getElement();
+      const btn = popupEl.querySelector('.download-btn');
       if (btn) {
         btn.addEventListener('click', () => {
-          // Nome do arquivo baseado no nome do município
           const nomeArquivo = (feature.properties?.NM_MUN || "municipio")
-  .normalize("NFD")                         // separa letras e acentos
-  .replace(/[\u0300-\u036f]/g, "")          // remove os acentos
-  .replace(/ç/g, "c")                       // trata cedilha
-  .replace(/Ç/g, "C")
-  .replace(/[^\w\s-]/g, "")                 // remove caracteres não permitidos
-  .replace(/\s+/g, "_");                    // troca espaço por _
+            .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+            .replace(/ç/g, "c").replace(/Ç/g, "C")
+            .replace(/[^\w\s-]/g, "").replace(/\s+/g, "_");
 
-          // Gera o KML apenas dessa feição
           let kml = tokml({
             type: "FeatureCollection",
             features: [feature]
           });
 
-const estiloKML = `
-  <Style id="customStyle">
-    <LineStyle>
-      <color>ff0000ff</color> <!-- Vermelho -->
-      <width>2</width>
-    </LineStyle>
-    <PolyStyle>
-      <color>00ff0000</color> <!-- Transparente -->
-      <fill>1</fill>
-      <outline>1</outline>
-    </PolyStyle>
-  </Style>
-`;
+          const estiloKML = `
+            <Style id="customStyle">
+              <LineStyle>
+                <color>ff0000ff</color>
+                <width>2</width>
+              </LineStyle>
+              <PolyStyle>
+                <color>00ff0000</color>
+                <fill>1</fill>
+                <outline>1</outline>
+              </PolyStyle>
+            </Style>
+          `;
 
-          // Insere o estilo no KML e aplica
           kml = kml.replace("</Document>", `${estiloKML}</Document>`);
           kml = kml.replace(/<Placemark>/g, '<Placemark><styleUrl>#customStyle</styleUrl>');
 
-          // Faz o download
           const blob = new Blob([kml], { type: "application/vnd.google-earth.kml+xml" });
           const url = URL.createObjectURL(blob);
           const a = document.createElement("a");
@@ -736,6 +768,14 @@ const estiloKML = `
     });
   }
 }
+
+// Evento global para limpar seleção com ESC
+document.addEventListener("keydown", function (e) {
+  if (e.key === "Escape" && municipioSelecionado) {
+    municipiosLayer.resetStyle(municipioSelecionado);
+    municipioSelecionado = null;
+  }
+});
 
 
     const municipiosLayer = new L.GeoJSON.AJAX("municipios.geojson", { 
