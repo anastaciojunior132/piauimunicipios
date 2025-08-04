@@ -743,6 +743,7 @@ const estiloKML = `
       onEachFeature: onEachMunicipio
     });
     municipiosLayer.addTo(map);
+    
 
     /* ================== Busca Fuzzy =================== */
     const searchInput = document.getElementById('searchMunicipio');
@@ -1037,6 +1038,11 @@ litigioLayer.bringToFront();
     };
   const layersControl = L.control.layers(baseMaps, overlayMaps, { collapsed: false }).addTo(map);
 
+
+
+
+
+
    function addLegend() {
   const legend = L.control({ position: 'bottomright' });
   legend.onAdd = function () {
@@ -1198,56 +1204,92 @@ rosaSBG.addTo(map);
 
 let estadoPiauiLayer;
 
-Promise.all([
-  new Promise(resolve => territoriosLayer.on('data:loaded', resolve)),
-  new Promise(resolve => litigioLayer.on('data:loaded', resolve)),
-  new Promise(resolve => linhaImperialLayer.on('data:loaded', resolve))
-]).then(() => {
-  const territoriosFeatures = territoriosLayer.toGeoJSON().features;
-  const litigioFeatures = litigioLayer.toGeoJSON().features;
-  const imperialFeatures = linhaImperialLayer.toGeoJSON().features;
+// === Camada do Estado do Piauí ===
+fetch("piaui.geojson")
+  .then(r => r.json())
+  .then(piauiData => {
+    const piauiLayer = L.geoJSON(piauiData, {
+      style: {
+        color: 'yellow',
+        weight: 3,
+        fillColor: 'transparent',
+        fillOpacity: 0
+      },
+      onEachFeature: function (feature, layer) {
+        layer.bindPopup("Estado do Piauí");
+      }
+    }).addTo(map);
 
-  const allFeatures = [...territoriosFeatures, ...litigioFeatures, ...imperialFeatures];
+    piauiLayer.bringToBack();
+    layersControl.addOverlay(piauiLayer, "Estado do Piauí");
 
-  let merged = allFeatures[0];
-  for (let i = 1; i < allFeatures.length; i++) {
-    try {
-      merged = turf.union(merged, allFeatures[i]);
-    } catch (e) {
-      console.warn('Erro ao unir feições:', e);
+    // Fundo escurecido com "buraco" no Piauí
+    const worldBounds = turf.bboxPolygon([-90, -60, -25, 15]); // Ajustável
+    const mask = turf.difference(worldBounds, piauiData.features[0]);
+
+    const escurecidoLayer = L.geoJSON(mask, {
+      style: {
+        fillColor: 'black',
+        fillOpacity: 0.5,
+        color: 'black',
+        weight: 0
+      },
+      interactive: false
+    }).addTo(map);
+
+    // === Biomas recortados para o Piauí ===
+    function styleBiomas(feature) {
+      const bioma = (feature.properties.Bioma || feature.properties.bioma || "").toLowerCase();
+      switch (bioma) {
+        case "amazônia": case "amazonia":
+          return { color: "#1B5E20", fillColor: "#1B5E20", fillOpacity: 0.5, weight: 1 };
+        case "caatinga":
+          return { color: "#E6B800", fillColor: "#E6B800", fillOpacity: 0.5, weight: 1 };
+        case "cerrado":
+          return { color: "#4CAF50", fillColor: "#4CAF50", fillOpacity: 0.5, weight: 1 };
+        case "mata atlântica": case "mata atlantica":
+          return { color: "#00695C", fillColor: "#00695C", fillOpacity: 0.5, weight: 1 };
+        case "pantanal":
+          return { color: "#8D6E63", fillColor: "#8D6E63", fillOpacity: 0.5, weight: 1 };
+        case "pampa":
+          return { color: "#A1887F", fillColor: "#A1887F", fillOpacity: 0.5, weight: 1 };
+        default:
+          return { color: "#9E9E9E", fillColor: "#9E9E9E", fillOpacity: 0.5, weight: 1 };
+      }
     }
+
+    fetch("biomas.geojson")
+      .then(r => r.json())
+      .then(biomasData => {
+        const biomasRecortados = { type: "FeatureCollection", features: [] };
+
+        biomasData.features.forEach(f => {
+          try {
+            const inter = turf.intersect(f, piauiData.features[0]);
+            if (inter) {
+              inter.properties = f.properties;
+              biomasRecortados.features.push(inter);
+            }
+          } catch (e) {
+            console.warn("Erro ao recortar bioma:", e);
+          }
+        });
+
+      const biomasLayer = L.geoJSON(biomasRecortados, {
+  style: styleBiomas,
+  onEachFeature: function (feature, layer) {
+    const nome = feature.properties.Bioma || feature.properties.bioma || "Bioma";
+    layer.bindPopup(`<b>Bioma:</b> ${nome}`);
   }
+}).addTo(map);
 
-  // Adiciona camada do Estado do Piauí (com litígio e linha imperial)
-  estadoPiauiLayer = L.geoJSON(merged, {
-    style: {
-      color: 'yellow',
-      weight: 3,
-      fillColor: 'transparent',
-      fillOpacity: 0
-    },
-    onEachFeature: function (feature, layer) {
-      layer.bindPopup("Estado do Piauí ");
-    }
+// Coloca Biomas no fundo, mas acima do fundo escurecido
+biomasLayer.bringToBack();
+
+layersControl.addOverlay(biomasLayer, "Biomas");
+      });
   });
-  estadoPiauiLayer.addTo(map);
-estadoPiauiLayer.bringToBack();
-  layersControl.addOverlay(estadoPiauiLayer, "Estado do Piauí");
 
-  // Fundo escurecido com "buraco" no Piauí
-  const worldBounds = turf.bboxPolygon([-90, -60, -25, 15]); // Ajustável
-  const mask = turf.difference(worldBounds, merged);
-
-  const escurecidoLayer = L.geoJSON(mask, {
-    style: {
-      fillColor: 'black',
-      fillOpacity: 0.5,
-      color: 'black',
-      weight: 0
-    },
-    interactive: false
-  }).addTo(map);
-});
 document.addEventListener('keydown', function (e) {
   if (e.key === "Escape") {
     territorioSelecionado = null;
