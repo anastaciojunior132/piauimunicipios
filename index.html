@@ -7,164 +7,283 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <style>
     * {
-  font-family: Arial, sans-serif !important;
-}
+      font-family: Arial, sans-serif !important;
+    }
 
-html, body {
-  margin: 0;
-  padding: 0;
-  height: 100%;
-  width: 100%;
-}
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      width: 100%;
+    }
 
-#map {
-  height: 100% !important;
-  width: 100% !important;
-  position: absolute;
-  top: 0;
-  left: 0;
-}
+    #map {
+      height: 100% !important;
+      width: 100% !important;
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
 
-/* ====== Legenda ====== */
-.legend {
-  background: white;
-  line-height: 1.3em;
-  color: #333;
-  padding: 12px;
-  overflow-y: auto;
-  font-size: clamp(10px, 1.5vw, 14px);
-  border-radius: 6px;
-  max-height: 50vh;
-  max-width: 300px;
-  box-shadow: 0 0 6px rgba(0,0,0,0.3);
-}
+    .legend {
+      background: white;
+      line-height: 18px;
+      color: #333;
+      padding: 12px;
+      overflow-y: auto;
+      font-size: 14px;
+      border-radius: 6px;
+      max-height: 50vh;
+      max-width: 300px;
+      box-shadow: 0 0 6px rgba(0,0,0,0.3);
+    }
 
-.legend i {
-  width: 58px;
-  height: 18px;
-  float: left;
-  margin-right: 8px;
-  opacity: 0.7;
-}
+    /* Responsivo para telas menores */
+    @media (max-width: 600px) {
+      .legend {
+        position: absolute;
+        bottom: 10px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 90vw;
+        max-height: 40vh;
+        padding: 8px;
+        font-size: 13px;
+        z-index: 5000;
+      }
+      /* Botão de recolher legenda */
+      .legend-toggle {
+        display: block;
+        position: absolute;
+        bottom: 10px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: #007bff;
+        color: white;
+        border: none;
+        padding: 5px 12px;
+        border-radius: 4px;
+        font-size: 14px;
+        z-index: 6000;
+        cursor: pointer;
+      }
+    }
 
-/* ====== Barra de Pesquisa ====== */
-#searchMunicipio {
-  position: absolute;
-  top: clamp(20px, 3vh, 30px);
-  left: 70%;
-  transform: translateX(-50%);
-  z-index: 3000;
-  padding: clamp(0.4em, 1vh, 0.75em) clamp(2em, 3vw, 3em);
-  width: clamp(200px, 30vw, 480px);
-  border: 1px solid #ccc;
-  border-radius: 40px;
-  font-size: clamp(0.9rem, 1.5vw, 1.25rem);
-}
+    .legend i {
+      width: 58px;
+      height: 18px;
+      float: left;
+      margin-right: 8px;
+      opacity: 0.7;
+    }
 
-#listaMunicipios {
-  position: absolute;
-  top: calc(clamp(20px, 3vh, 30px) + 2.5em);
-  left: 70%;
-  transform: translateX(-50%);
-  z-index: 4000;
-  max-height: 200px;
-  overflow-y: auto;
-  width: clamp(200px, 30vw, 480px);
-  background: white;
-  border: 1px solid #ccc;
-  border-radius: 5px;
-  display: none;
-  font-size: clamp(0.85rem, 1.3vw, 1rem);
-}
+    #downloadBtn {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: white;
+      padding: 5px 10px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      cursor: pointer;
+      z-index: 1000;
+    }
 
-#listaMunicipios div {
-  padding: 4px 8px;
-  cursor: pointer;
-  border-bottom: 1px solid #eee;
-}
-#listaMunicipios div:hover {
-  background-color: #ddd;
-}
+    #uploadBtn {
+      position: absolute;
+      top: 80px;
+      left: 10px;
+      background: white;
+      padding: 5px 10px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      cursor: pointer;
+      z-index: 1000;
+    }
 
-/* ====== Título ====== */
-.map-title {
-  position: absolute;
-  top: 10px;
-  left: 10%;
-  transform: translateX(-50%);
-  background: rgba(255, 255, 255, 0.9);
-  padding: clamp(0.4em, 0.8vh, 0.5em) clamp(0.8em, 1.5vw, 1em);
-  border-radius: 6px;
-  font-size: clamp(0.9rem, 1.8vw, 1.1rem);
-  font-weight: bold;
-  color: #333;
-  box-shadow: 0 0 6px rgba(0, 0, 0, 0.3);
-  z-index: 2000;
-  text-align: center;
-  max-width: 80vw;
-  white-space: nowrap;
-}
+    #uploadInput { display: none; }
 
-/* ====== Botões Upload / Download ====== */
-#downloadBtn,
-#uploadBtn {
-  background: white;
-  padding: clamp(4px, 0.6vh, 6px) clamp(8px, 1vw, 10px);
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  cursor: pointer;
-  z-index: 1000;
-  font-size: clamp(0.8rem, 1.2vw, 1rem);
-}
+    .north-arrow {
+      pointer-events: none;
+      background-image: url('https://upload.wikimedia.org/wikipedia/commons/thumb/7/7f/Map_symbol_north_arrow.svg/64px-Map_symbol_north_arrow.svg.png');
+      background-size: contain;
+      background-repeat: no-repeat;
+      width: 40px;
+      height: 40px;
+      opacity: 0.8;
+      margin-right: 10px;
+      margin-top: 10px;
+    }
 
-#downloadBtn {
-  position: absolute;
-  top: clamp(8px, 1vh, 10px);
-  left: 10px;
-}
+    #searchMunicipio {
+      position: absolute;
+      top: 30px;
+      left: 70%;
+      transform: translateX(-50%);
+      z-index: 3000;
+      padding: 0.75em 3em;
+      width: 30vw;
+      max-width: 480px;
+      min-width: 250px;
+      border: 1px solid #ccc;
+      border-radius: 40px;
+      font-size: 1.25rem;
+    }
 
-#uploadBtn {
-  position: absolute;
-  top: clamp(60px, 7vh, 80px);
-  left: 10px;
-}
+    /* Ajustes para telas pequenas */
+    @media (max-width: 600px) {
+      .map-title {
+        position: relative;
+        text-align: center;
+        font-size: 16px;
+        padding: 5px;
+        margin-top: 5px;
+      }
 
-/* ====== Responsivo para telas menores ====== */
-@media (max-width: 768px) {
-  .map-title, .leaflet-control-search {
-    width: 95% !important;
-    max-width: none !important;
-    margin: 10px auto;
-    display: block;
-  }
-  .leaflet-control-layers {
-    top: auto;
-    bottom: 10px;
-    right: 10px;
-  }
-  .legend {
-    bottom: 60px;
-    left: 10px;
-  }
-}
+      #searchMunicipio {
+        top: 60px;
+        width: 80vw;
+        padding: 0.5em 2em;
+        font-size: 1rem;
+      }
+    }
 
-@media (max-width: 600px) {
-  .map-title {
-    left: 50%;
-    transform: translateX(-50%);
-    font-size: clamp(0.85rem, 4vw, 1rem);
-    max-width: 95vw;
-    white-space: normal;
-  }
-  #searchMunicipio {
-    top: 60px;
-    width: 80vw;
-  }
-  #listaMunicipios {
-    top: calc(60px + 2em);
-    width: 80vw;
-  }
-}
+    @media (max-width: 768px) {
+      .map-title,
+      .leaflet-control-search {
+        width: 95% !important;
+        max-width: none !important;
+        margin: 10px auto;
+        display: block;
+      }
+
+      .leaflet-control-layers {
+        top: auto;
+        bottom: 10px;
+        right: 10px;
+      }
+
+      .legend {
+        bottom: 60px;
+        left: 10px;
+      }
+    }
+
+    #listaMunicipios {
+      position: absolute;
+      top: calc(30px + 2.5em);
+      left: 70%;
+      transform: translateX(-50%);
+      z-index: 4000;
+      max-height: 200px;
+      overflow-y: auto;
+      width: 30vw;
+      max-width: 480px;
+      min-width: 250px;
+      background: white;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      display: none;
+      font-size: 16px;
+    }
+
+    @media (max-width: 600px) {
+      #listaMunicipios {
+        top: calc(60px + 2em);
+        width: 80vw;
+        max-width: none;
+        min-width: auto;
+      }
+    }
+
+    #listaMunicipios div {
+      padding: 4px 8px;
+      cursor: pointer;
+      border-bottom: 1px solid #eee;
+    }
+
+    #listaMunicipios div:hover { background-color: #ddd; }
+
+    #coords {
+      position: absolute;
+      bottom: 50px;
+      left: 10px;
+      background: rgba(255, 255, 255, 0.5);
+      padding: 5px 8px;
+      font-size: 13px;
+      border-radius: 4px;
+      border: 1px solid rgba(204, 204, 204, 0.5);
+      z-index: 1000;
+    }
+
+    .map-title {
+      position: absolute;
+      top: 10px;
+      left: 10%;
+      transform: translateX(-50%);
+      background: rgba(255, 255, 255, 0.9);
+      padding: 0.5em 1em;
+      border-radius: 6px;
+      font-size: 1.1rem;
+      font-weight: bold;
+      color: #333;
+      box-shadow: 0 0 6px rgba(0, 0, 0, 0.3);
+      z-index: 2000;
+      text-align: center;
+      max-width: 80vw;
+      white-space: nowrap;
+    }
+
+    @media (max-width: 600px) {
+      .map-title {
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: 1rem;
+        max-width: 95vw;
+        white-space: normal;
+        padding: 0.4em 0.8em;
+      }
+    }
+
+    .leaflet-control-layers {
+      margin-top: 0px !important;
+    }
+
+    .leaflet-control-zoom {
+      margin-top: 150px !important;
+      margin-left: 10px !important;
+    }
+
+    .rosa-sbg {
+      pointer-events: none;
+      margin-bottom: 60px;
+      margin-left: 10px;
+      background: transparent;
+      width: 150px;
+      height: 150px;
+      transform: scale(0.6);
+      transform-origin: center;
+    }
+
+    .territorio-item {
+      cursor: pointer;
+      transition: color 0.3s;
+    }
+
+    .territorio-item:hover {
+      color: #007bff;
+      font-weight: bold;
+    }
+
+    #searchMunicipio,
+    #listaMunicipios {
+      font-family: Arial, sans-serif;
+    }
+
+    #listaMunicipios div.highlighted {
+      background-color: #007bff;
+      color: white;
+    }
   </style>
 </head>
 <body>
