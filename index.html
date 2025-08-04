@@ -340,11 +340,21 @@
     /* =========================
        SEU CÓDIGO EXISTENTE PARA TERRITÓRIOS, MUNICÍPIOS, ETC...
        ========================= */
-    const territorioPalette = [
-      '#1f78b4', '#e31a1c', '#33a02c', '#ff7f00',
-      '#6a3d9a', '#b15928', '#a6cee3', '#b2df8a',
-      '#fb9a99', '#fdbf6f'
-    ];
+const territorioPalette = [
+  '#1f78b4', // Azul
+  '#33a02c', // Verde médio
+  '#e31a1c', // Vermelho
+  '#ff7f00', // Laranja
+  '#6a3d9a', // Roxo escuro
+  '#b15928', // Marrom
+  '#a6cee3', // Azul claro
+  '#b2df8a', // Verde claro
+  '#fb9a99', // Rosa claro
+  '#fdbf6f', // Laranja claro
+  '#cab2d6', // Lilás
+  '#ffff99'  // Amarelo claro
+];
+
 
     const territorioColors = [];
     let colorIndex = 0;
@@ -360,26 +370,27 @@
   return terr.cor;
 }
 function generateInfoContent(properties) { 
-  const labels = {
-    NM_MUN: "Município:",
-    CD_MUN: "Código do Município:",
-    fid: "Código do Território:",
-    NM_TD: "Território de Desenvolvimento:",
-    AREA_KM2: "Área (km²):",
-    pib_porcent_Piaui: "PIB (%) Piauí:",
-    pop_porcent_Piaui: "População (%) Piauí:",
-    pib_porcent_TD: "PIB (%) TD:",
-    pop_porcent_TD: "População (%) TD:",
-    pib_2021: "PIB 2021:",
-    pop_censo2022: "População (Censo 2022):",
-    densidade_demografica: "Densidade demográfica:"
-  };
+const labels = {
+  NM_MUN: "Município:",
+  CD_MUN: "Código do Município:",
+  fid: "Código do Território:",
+  NM_TD: "Território de Desenvolvimento:",
+  AREA_KM2: "Área (km²):",
+  "Aglomerado - PI": "Aglomerado:",   // <-- adicionado
+  pib_porcent_Piaui: "PIB (%) Piauí:",
+  pop_porcent_Piaui: "População (%) Piauí:",
+  pib_porcent_TD: "PIB (%) TD:",
+  pop_porcent_TD: "População (%) TD:",
+  pib_2021: "PIB 2021:",
+  pop_censo2022: "População (Censo 2022):",
+  densidade_demografica: "Densidade demográfica:"
+};
 
-  const grupos = {
-    geografico: ["NM_MUN", "CD_MUN", "fid", "NM_TD", "AREA_KM2"],
-    populacional: ["pop_censo2022","densidade_demografica","pop_porcent_Piaui", "pop_porcent_TD"],
-    pib: ["pib_2021","pib_porcent_Piaui", "pib_porcent_TD"]
-  };
+const grupos = {
+  geografico: ["NM_MUN", "CD_MUN", "fid", "NM_TD", "AREA_KM2", "Aglomerado - PI"], // <-- adicionado
+  populacional: ["pop_censo2022","densidade_demografica","pop_porcent_Piaui", "pop_porcent_TD"],
+  pib: ["pib_2021","pib_porcent_Piaui", "pib_porcent_TD"]
+};
 
   // Função para formatar número no formato pt-BR: 1234567.89 -> "1.234.567,89"
   function formatNumeroPTBR(numero, casasDecimais = 2) {
@@ -390,21 +401,27 @@ function generateInfoContent(properties) {
   }
 
   function formatValor(key, valor) {
-    if (valor !== null && valor !== undefined) {
-      let num = Number(valor);
-      if (!isNaN(num)) {
-        // Formata porcentagens com vírgula e % no final
-        if (["pib_porcent_Piaui", "pop_porcent_Piaui", "pib_porcent_TD", "pop_porcent_TD"].includes(key)) {
-          return num.toFixed(2).replace('.', ',') + "%";
-        }
-        // Para os demais numéricos, usa a formatação pt-BR com separador de milhar
-        return formatNumeroPTBR(num, 2);
+  if (valor !== null && valor !== undefined) {
+    let num = Number(valor);
+    if (!isNaN(num)) {
+      // Formata porcentagens com vírgula e % no final
+      if (["pib_porcent_Piaui", "pop_porcent_Piaui", "pib_porcent_TD", "pop_porcent_TD"].includes(key)) {
+        return num.toFixed(2).replace('.', ',') + "%";
       }
-      return valor; // Não é número
+      // Campos inteiros (sem casas decimais e sem separador para código)
+      if (key === "CD_MUN") {
+        return String(Math.trunc(num)); // mantém só o número inteiro sem pontos
+      }
+      if (key === "pop_censo2022") {
+        return num.toLocaleString('pt-BR', { maximumFractionDigits: 0 });
+      }
+      // Para os demais numéricos, usa a formatação pt-BR com 2 casas
+      return formatNumeroPTBR(num, 2);
     }
-    return "-";
+    return valor; // Não é número
   }
-
+  return "-";
+}
   let content = "";
 
   function montarTabelaGrupo(titulo, campos) {
@@ -503,20 +520,21 @@ function onEachTerritorio(feature, layer) {
       const municipios = [];
       municipiosLayer.eachLayer(mLayer => {
         const p = mLayer.feature?.properties || {};
-        // verifica se NM_TD ou fid são iguais
         if ((p.NM_TD && territorioNome && p.NM_TD === territorioNome) || 
             (p.fid && territorioCodigo && p.fid === territorioCodigo)) {
           municipios.push(p.NM_MUN || "(sem nome)");
         }
       });
 
-      // ordena alfabeticamente
+      // Ordena alfabeticamente
       municipios.sort((a, b) => a.localeCompare(b, 'pt-BR'));
 
-      // popup base (já existia) + lista de municípios
-      const baseHtml = generateInfoContent(feature.properties) +
-        `<button class="download-btn" style="margin-top:5px;">Baixar KML desta feição</button>`;
+      // Conteúdo base da popup
+      const baseHtml = `<b>Território:</b> ${feature.properties?.NM_TD || "-"}<br>
+<b>Código:</b> ${feature.properties?.fid || "-"}<br>
+<button class="download-btn" style="margin-top:5px;">Baixar KML deste território</button>`;
 
+      // Lista de municípios
       const listaHtml = municipios.length
         ? `<hr><b>Municípios (${municipios.length}):</b>
            <div style="max-height:150px;overflow:auto;margin-top:6px;">
@@ -526,15 +544,64 @@ function onEachTerritorio(feature, layer) {
            </div>`
         : `<hr><i>Nenhum município associado encontrado.</i>`;
 
-      // atualiza o popup do território com a lista
+      // Adiciona popup
       layer.bindPopup(baseHtml + listaHtml);
+
+      // Evento quando a popup abre
+      layer.on('popupopen', (e) => {
+        const popupEl = e.popup.getElement();
+        const btn = popupEl.querySelector('.download-btn');
+        if (btn) {
+          btn.addEventListener('click', () => {
+            // Nome do arquivo baseado no nome do território
+            const nomeArquivo = (layer.feature.properties?.NM_TD || "territorio")
+              .replace(/[^\w\s-]/g, "")
+              .replace(/\s+/g, "_");
+
+            // Gera o KML
+            let kml = tokml({
+              type: "FeatureCollection",
+              features: [layer.feature]
+            });
+
+            // Estilo para bordas amarelas e preenchimento transparente
+            const estiloKML = `
+              <Style id="customStyle">
+                <LineStyle>
+                  <color>ff00ffff</color> <!-- Amarelo -->
+                  <width>5</width>
+                </LineStyle>
+                <PolyStyle>
+                  <color>00ffffff</color> <!-- Transparente -->
+                  <fill>1</fill>
+                  <outline>1</outline>
+                </PolyStyle>
+              </Style>
+            `;
+
+            // Insere estilo no KML e aplica no placemark
+            kml = kml.replace("</Document>", `${estiloKML}</Document>`);
+            kml = kml.replace(/<Placemark>/g, '<Placemark><styleUrl>#customStyle</styleUrl>');
+
+            // Baixa o arquivo
+            const blob = new Blob([kml], { type: "application/vnd.google-earth.kml+xml" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `${nomeArquivo}.kml`;
+            a.click();
+            URL.revokeObjectURL(url);
+          });
+        }
+      });
+
+      // Abre a popup
       layer.openPopup();
     }
   });
-
-  // mantém comportamento padrão do popup
-  onEachFeaturePopup(feature, layer);
 }
+
+
 
 const territoriosLayer = new L.GeoJSON.AJAX("territorios.geojson", {
   style: styleTerritorios,
@@ -563,31 +630,68 @@ let municipioSelecionado = null;
       municipiosLayer.resetStyle(e.target);
     }
 
-    function onEachMunicipio(feature, layer) {
-      layer.on({
-        mouseover: highlightFeature,
-        mouseout: resetHighlight
-      });
-      if (feature.properties) {
-        layer.bindPopup(generateInfoContent(feature.properties) +
-          `<button class="download-btn" style="margin-top:5px;">Baixar KML desta feição</button>`);
-        layer.on('popupopen', () => {
-          const btn = document.querySelector('.download-btn');
-          if (btn) {
-            btn.onclick = () => {
-              const kml = tokml({ type: "FeatureCollection", features: [feature] });
-              const blob = new Blob([kml], { type: "application/vnd.google-earth.kml+xml" });
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement("a");
-              a.href = url;
-              a.download = "feicao.kml";
-              a.click();
-              URL.revokeObjectURL(url);
-            };
-          }
+   function onEachMunicipio(feature, layer) {
+  layer.on({
+    mouseover: highlightFeature,
+    mouseout: resetHighlight
+  });
+
+  if (feature.properties) {
+    // Cria a pop-up com a tabela + botão
+    layer.bindPopup(
+      generateInfoContent(feature.properties) +
+      `<button class="download-btn" style="margin-top:5px;">Baixar KML deste município</button>`
+    );
+
+    // Quando a pop-up abrir, associa o evento apenas ao botão dessa pop-up
+    layer.on('popupopen', (e) => {
+      const popupEl = e.popup.getElement(); // pega o elemento da pop-up atual
+      const btn = popupEl.querySelector('.download-btn'); // botão correto
+      if (btn) {
+        btn.addEventListener('click', () => {
+          // Nome do arquivo baseado no nome do município
+          const nomeArquivo = (feature.properties?.NM_MUN || "municipio")
+            .replace(/[^\w\s-]/g, "")
+            .replace(/\s+/g, "_");
+
+          // Gera o KML apenas dessa feição
+          let kml = tokml({
+            type: "FeatureCollection",
+            features: [feature]
+          });
+
+const estiloKML = `
+  <Style id="customStyle">
+    <LineStyle>
+      <color>ff0000ff</color> <!-- Vermelho -->
+      <width>2</width>
+    </LineStyle>
+    <PolyStyle>
+      <color>00ff0000</color> <!-- Transparente -->
+      <fill>1</fill>
+      <outline>1</outline>
+    </PolyStyle>
+  </Style>
+`;
+
+          // Insere o estilo no KML e aplica
+          kml = kml.replace("</Document>", `${estiloKML}</Document>`);
+          kml = kml.replace(/<Placemark>/g, '<Placemark><styleUrl>#customStyle</styleUrl>');
+
+          // Faz o download
+          const blob = new Blob([kml], { type: "application/vnd.google-earth.kml+xml" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `${nomeArquivo}.kml`;
+          a.click();
+          URL.revokeObjectURL(url);
         });
       }
-    }
+    });
+  }
+}
+
 
     const municipiosLayer = new L.GeoJSON.AJAX("municipios.geojson", { 
       style: styleMunicipios,
@@ -717,63 +821,159 @@ function updateHighlight(itens) {
       }
     });
 
-    searchInput.addEventListener('keypress', function(e) {
-      if (e.key === 'Enter') {
-        const termo = this.value.trim().toLowerCase();
-        if (!termo) return;
+  searchInput.addEventListener('keydown', function(e) {
+  const itens = listaMunicipios.querySelectorAll('div');
 
-        let achou = false;
-        municipiosLayer.eachLayer(layer => {
-          const nomeMun = layer.feature.properties.NM_MUN;
-          if (nomeMun && nomeMun.toLowerCase() === termo) {
-            map.fitBounds(layer.getBounds());
-            layer.openPopup();
-            achou = true;
-          }
-        });
-        if (!achou) alert('Município não encontrado!');
-        listaMunicipios.style.display = 'none';
-      }
-    });
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    if (highlightedIndex < itens.length - 1) {
+      highlightedIndex++;
+      updateHighlight(itens);
+    }
+  } 
+  else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    if (highlightedIndex > 0) {
+      highlightedIndex--;
+      updateHighlight(itens);
+    }
+  } 
+  else if (e.key === 'Enter') {
+    e.preventDefault();
+    if (highlightedIndex >= 0 && highlightedIndex < itens.length) {
+      // Simula o clique no item selecionado
+      itens[highlightedIndex].click();
+    }
+  }
+});
 
-    function onEachLitigio(feature, layer) {
+// === LITÍGIO ===
+function onEachLitigio(feature, layer) {
   layer.on({
     mouseover: highlightFeature,
-    mouseout: function(e) {
+    mouseout: function (e) {
       litigioLayer.resetStyle(e.target);
     }
   });
 
-  onEachFeaturePopup(feature, layer);
+  // Popup simples com botão para download
+  layer.bindPopup(`
+    <b>Litígio</b><br>
+    <button class="download-btn" style="margin-top:5px;">Baixar KML</button>
+  `);
+
+  layer.on("popupopen", () => {
+    const btn = document.querySelector(".download-btn");
+    if (btn) {
+      btn.onclick = () => {
+        let kml = tokml({
+          type: "FeatureCollection",
+          features: [feature]
+        });
+
+        // Estilo verde, transparente
+        const estiloKML = `
+          <Style id="litigioStyle">
+            <LineStyle>
+              <color>ff00ff00</color> <!-- Verde -->
+              <width>3</width>
+            </LineStyle>
+            <PolyStyle>
+              <color>00ffffff</color> <!-- Transparente -->
+              <fill>1</fill>
+              <outline>1</outline>
+            </PolyStyle>
+          </Style>
+        `;
+
+        // Insere estilo no KML
+        kml = kml.replace("</Document>", `${estiloKML}</Document>`);
+        kml = kml.replace(/<Placemark>/g, '<Placemark><styleUrl>#litigioStyle</styleUrl>');
+
+        // Download
+        const blob = new Blob([kml], { type: "application/vnd.google-earth.kml+xml" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "litigio.kml";
+        a.click();
+        URL.revokeObjectURL(url);
+      };
+    }
+  });
 }
 
 const litigioLayer = new L.GeoJSON.AJAX("litigio.geojson", {
   style: { color: 'red', weight: 2 },
   onEachFeature: onEachLitigio
 });
-   
+litigioLayer.addTo(map);
+
+
+// === LINHA IMPERIAL ===
 function onEachImperial(feature, layer) {
   layer.on({
     mouseover: highlightFeature,
-    mouseout: function(e) {
+    mouseout: function (e) {
       linhaImperialLayer.resetStyle(e.target);
     }
   });
 
-  onEachFeaturePopup(feature, layer);
+  // Popup simples com botão para download
+  layer.bindPopup(`
+    <b>Linha Imperial</b><br>
+    <button class="download-btn" style="margin-top:5px;">Baixar KML</button>
+  `);
+
+  layer.on("popupopen", () => {
+    const btn = document.querySelector(".download-btn");
+    if (btn) {
+      btn.onclick = () => {
+        let kml = tokml({
+          type: "FeatureCollection",
+          features: [feature]
+        });
+
+        // Estilo laranja, transparente
+        const estiloKML = `
+          <Style id="imperialStyle">
+            <LineStyle>
+              <color>ff00a5ff</color> <!-- Laranja -->
+              <width>3</width>
+            </LineStyle>
+            <PolyStyle>
+              <color>00ffffff</color> <!-- Transparente -->
+              <fill>1</fill>
+              <outline>1</outline>
+            </PolyStyle>
+          </Style>
+        `;
+
+        // Insere estilo no KML
+        kml = kml.replace("</Document>", `${estiloKML}</Document>`);
+        kml = kml.replace(/<Placemark>/g, '<Placemark><styleUrl>#imperialStyle</styleUrl>');
+
+        // Download
+        const blob = new Blob([kml], { type: "application/vnd.google-earth.kml+xml" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "linha_imperial.kml";
+        a.click();
+        URL.revokeObjectURL(url);
+      };
+    }
+  });
 }
 
 const linhaImperialLayer = new L.GeoJSON.AJAX("linha_imperial.geojson", {
   style: { color: 'blue', weight: 2, dashArray: '5,5' },
   onEachFeature: onEachImperial
-    });
-    linhaImperialLayer.addTo(map);
-     litigioLayer.addTo(map);
-
-
-litigioLayer.on('data:loaded', () => {
-  litigioLayer.bringToFront();
 });
+linhaImperialLayer.addTo(map);
+
+litigioLayer.bringToFront();
+
 
     /* ==============================
        CONTROLE DE CAMADAS
