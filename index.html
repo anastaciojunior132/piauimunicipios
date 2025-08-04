@@ -283,12 +283,49 @@
     #listaMunicipios div.highlighted {
       background-color: #007bff;
       color: white;
+      .legend-toggle {
+  display: none; /* oculto por padrão, visível apenas em telas pequenas */
+}
+
+@media (max-width: 600px) {
+  .legend {
+    position: absolute;
+    bottom: 50px; /* evitar sobreposição com botão */
+    left: 50%;
+    transform: translateX(-50%);
+    width: 90vw;
+    max-height: 40vh;
+    padding: 8px;
+    font-size: 13px;
+    z-index: 5000;
+    display: block;
+  }
+
+  .legend-toggle {
+    display: block;
+    position: absolute;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #007bff;
+    color: white;
+    border: none;
+    padding: 5px 12px;
+    border-radius: 4px;
+    font-size: 14px;
+    z-index: 6000;
+    cursor: pointer;
+  }
+}
+
     }
   </style>
 </head>
 <body>
   <div id="map"></div>
-  
+
+  <button class="legend-toggle" onclick="toggleLegend()">⮟ Legenda</button>
+
   <div class="map-title">Mapa Interativo – Territórios e Municípios</div>
   <div id="coords">Lat: -, Lon: -<br>E: -, N: -<br>Fuso: -</div>
 
@@ -307,7 +344,7 @@
   <!-- leaflet-omnivore para ler KML/KMZ em Leaflet -->  <!-- <-- ADIÇÃO -->
   <script src="https://unpkg.com/leaflet-omnivore@0.3.4/leaflet-omnivore.min.js"></script>
   <script>
-    const map = L.map('map').setView([-7, -42], 7);
+    const map = L.map('map').setView([-7, -42], 7.48);
     L.control.scale().addTo(map);
 
     const north = L.control({position: "topright"});
@@ -359,21 +396,80 @@
   }
   return terr.cor;
 }
-function generateInfoContent(properties) {
+function generateInfoContent(properties) { 
   const labels = {
-    NM_MUN: "Município",
-    CD_MUN: "Código do Município",
-    fid: "Código do Território",
-    NM_TD: "Território de Desenvolvimento",
-    AREA_KM2: "Área (km²)"
-    // Adicione outros conforme necessário
+    NM_MUN: "Município:",
+    CD_MUN: "Código do Município:",
+    fid: "Código do Território:",
+    NM_TD: "Território de Desenvolvimento:",
+    AREA_KM2: "Área (km²):",
+    pib_porcent_Piaui: "PIB (%) Piauí:",
+    pop_porcent_Piaui: "População (%) Piauí:",
+    pib_porcent_TD: "PIB (%) TD:",
+    pop_porcent_TD: "População (%) TD:",
+    pib_2021: "PIB 2021:",
+    pop_censo2022: "População (Censo 2022):",
+    densidade_demografica: "Densidade demográfica:"
   };
 
-  let content = "<b>Informações:</b><br>";
-  for (const key in properties) {
-    const label = labels[key] || key;
-    content += `<b>${label}:</b> ${properties[key]}<br>`;
+  const grupos = {
+    geografico: ["NM_MUN", "CD_MUN", "fid", "NM_TD", "AREA_KM2"],
+    populacional: ["pop_censo2022","densidade_demografica","pop_porcent_Piaui", "pop_porcent_TD"],
+    pib: ["pib_2021","pib_porcent_Piaui", "pib_porcent_TD"]
+  };
+
+  // Função para formatar número no formato pt-BR: 1234567.89 -> "1.234.567,89"
+  function formatNumeroPTBR(numero, casasDecimais = 2) {
+    return numero.toLocaleString('pt-BR', {
+      minimumFractionDigits: casasDecimais,
+      maximumFractionDigits: casasDecimais
+    });
   }
+
+  function formatValor(key, valor) {
+    if (valor !== null && valor !== undefined) {
+      let num = Number(valor);
+      if (!isNaN(num)) {
+        // Formata porcentagens com vírgula e % no final
+        if (["pib_porcent_Piaui", "pop_porcent_Piaui", "pib_porcent_TD", "pop_porcent_TD"].includes(key)) {
+          return num.toFixed(2).replace('.', ',') + "%";
+        }
+        // Para os demais numéricos, usa a formatação pt-BR com separador de milhar
+        return formatNumeroPTBR(num, 2);
+      }
+      return valor; // Não é número
+    }
+    return "-";
+  }
+
+  let content = "";
+
+  function montarTabelaGrupo(titulo, campos) {
+    let html = `
+      <div style="text-align: center; font-weight: bold; font-size: 1.1em; margin: 10px 0;">
+        ${titulo}
+      </div>
+      <table class="popup-table" style="border-collapse: collapse; width: 100%; font-size: 0.95em;">
+    `;
+    campos.forEach(key => {
+      if (key in properties) {
+        const label = labels[key] || key;
+        const valor = formatValor(key, properties[key]);
+        html += `
+          <tr>
+            <th style="text-align: left; padding: 6px 8px; border-bottom: 1px solid #ddd; font-weight: normal;">${label}</th>
+            <td style="text-align: right; padding: 6px 8px; border-bottom: 1px solid #ddd;">${valor}</td>
+          </tr>`;
+      }
+    });
+    html += "</table>";
+    return html;
+  }
+
+  content += montarTabelaGrupo("Informações Geográficas", grupos.geografico);
+  content += montarTabelaGrupo("Informações Populacionais", grupos.populacional);
+  content += montarTabelaGrupo("Informações de PIB", grupos.pib);
+
   return content;
 }
 
@@ -756,43 +852,22 @@ litigioLayer.on('data:loaded', () => {
 `;
   });
     div.innerHTML += '<hr style="margin:5px 0;">';
-    div.innerHTML += '<small>Coordenação de Cartografia e Geoinformação<br>CCGEO/CIET/SEPLAN</small>';
+    div.innerHTML += '<small>Coordenação de Cartografia e Análise Espacial<br>CCAE/CIET/SEPLAN</small>';
     return div;
   };
 
   legend.addTo(map);
 
-  // Adiciona evento de clique para destacar o território
-  setTimeout(() => {
-    const items = document.querySelectorAll('.territorio-item');
-    items.forEach(item => {
-      item.addEventListener('click', () => {
-        const nome = item.getAttribute('data-nome');
-        highlightTerritory(nome);
-      });
-    });
-  }, 300);
+ 
 }
-
-  // Adiciona eventos de clique nos nomes
-  setTimeout(() => {
-    document.querySelectorAll('.territorio-item').forEach(item => {
-      item.addEventListener('click', () => {
-        const nome = item.getAttribute('data-nome');
-        territoriosLayer.eachLayer(layer => {
-          if (layer.feature && layer.feature.properties.NM_TD === nome) {
-            map.fitBounds(layer.getBounds());
-            layer.setStyle({
-              weight: 4,
-              color: 'red',
-              fillOpacity: 0.6
-            });
-            setTimeout(() => territoriosLayer.resetStyle(layer), 3000);
-          }
-        });
-      });
+setTimeout(() => {
+  document.querySelectorAll('.territorio-item').forEach(item => {
+    item.addEventListener('click', () => {
+      const nome = item.getAttribute('data-nome');
+      highlightTerritory(nome);
     });
-  }, 300);
+  });
+}, 300);
 
 
     /* ========== Função Lat/Lon -> UTM ========== */
@@ -967,6 +1042,18 @@ estadoPiauiLayer.bringToBack();
     interactive: false
   }).addTo(map);
 });
+function toggleLegend() {
+  const legend = document.querySelector('.legend');
+  const button = document.querySelector('.legend-toggle');
+
+  if (legend.style.display === 'none') {
+    legend.style.display = 'block';
+    button.innerHTML = '⮝ Legenda';
+  } else {
+    legend.style.display = 'none';
+    button.innerHTML = '⮟ Legenda';
+  }
+}
   </script>
 </body>
 </html>
