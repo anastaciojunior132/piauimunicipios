@@ -518,6 +518,7 @@ function highlightTerritory(nome) {
         fillOpacity: 0.8     // visível, mas apagado
       });
     }
+    
   });
 
   // Garante que hover dos municípios continue funcionando
@@ -691,8 +692,12 @@ let municipioSelecionado = null;
         btn.addEventListener('click', () => {
           // Nome do arquivo baseado no nome do município
           const nomeArquivo = (feature.properties?.NM_MUN || "municipio")
-            .replace(/[^\w\s-]/g, "")
-            .replace(/\s+/g, "_");
+  .normalize("NFD")                         // separa letras e acentos
+  .replace(/[\u0300-\u036f]/g, "")          // remove os acentos
+  .replace(/ç/g, "c")                       // trata cedilha
+  .replace(/Ç/g, "C")
+  .replace(/[^\w\s-]/g, "")                 // remove caracteres não permitidos
+  .replace(/\s+/g, "_");                    // troca espaço por _
 
           // Gera o KML apenas dessa feição
           let kml = tokml({
