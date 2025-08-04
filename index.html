@@ -67,26 +67,6 @@
         z-index: 6000;
         cursor: pointer;
       }
-      /* Botão para expandir/recolher a pesquisa */
-      .search-toggle {
-        display: block;
-        position: absolute;
-        top: 30px;
-        right: 10px;
-        background: #007bff;
-        color: white;
-        border: none;
-        padding: 5px 10px;
-        border-radius: 4px;
-        font-size: 1rem;
-        z-index: 6000;
-        cursor: pointer;
-      }
-      /* por padrão, esconda o input e a lista */
-      #searchMunicipio,
-      #listaMunicipios {
-        display: none !important;
-      }
     }
 
     .legend i {
@@ -308,11 +288,7 @@
 </head>
 <body>
   <div id="map"></div>
-
-  <button class="legend-toggle" onclick="toggleLegend()">⮟ Legenda</button>
-  <!-- Botão toggle para a pesquisa -->
-  <button class="search-toggle" onclick="toggleSearch()">🔍 Buscar</button>
-
+  
   <div class="map-title">Mapa Interativo – Territórios e Municípios</div>
   <div id="coords">Lat: -, Lon: -<br>E: -, N: -<br>Fuso: -</div>
 
@@ -321,14 +297,14 @@
   
   <input type="text" id="searchMunicipio" placeholder="Pesquisar município" />
   <div id="listaMunicipios"></div>
-
   <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script src="https://unpkg.com/leaflet-ajax/dist/leaflet.ajax.min.js"></script>
   <!-- JSZip para ler KMZ -->
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/tokml@0.4.0/tokml.js"></script>
-  <!-- leaflet-omnivore para ler KML/KMZ em Leaflet -->
+  <script src="https://cdn.jsdelivr.net/npm/tokml@0.4.0/tokml.js"></script> <!-- Você usa tokml, então inclua -->
+  <!-- leaflet-omnivore para ler KML/KMZ em Leaflet -->  <!-- <-- ADIÇÃO -->
   <script src="https://unpkg.com/leaflet-omnivore@0.3.4/leaflet-omnivore.min.js"></script>
   <script>
     const map = L.map('map').setView([-7, -42], 7.48);
@@ -345,9 +321,20 @@
     const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© OpenStreetMap contributors'
     });
-    const esriSat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles © Esri' });
-    const esriTerrain = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Terrain_Base/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles © Esri' });
-    const esriRoad = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles © Esri' });
+
+    const esriSat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      attribution: 'Tiles © Esri'
+    });
+
+    const esriTerrain = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Terrain_Base/MapServer/tile/{z}/{y}/{x}', {
+      attribution: 'Tiles © Esri'
+    });
+
+    const esriRoad = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+      attribution: 'Tiles © Esri'
+    });
+
+    // Define camada padrão (OpenStreetMap)
     osmLayer.addTo(map);
 
     /* =========================
@@ -358,98 +345,103 @@
       '#6a3d9a', '#b15928', '#a6cee3', '#b2df8a',
       '#fb9a99', '#fdbf6f'
     ];
+
     const territorioColors = [];
     let colorIndex = 0;
 
     function getColorForTerritorio(nome, codigo = null) {
-      let terr = territorioColors.find(t => t.nome === nome);
-      if (!terr) {
-        const display = codigo ? `TD ${codigo} – ${nome}` : nome;
-        terr = { nome, codigo, label: display, cor: territorioPalette[colorIndex % territorioPalette.length] };
-        territorioColors.push(terr);
-        colorIndex++;
-      }
-      return terr.cor;
-    }
+  let terr = territorioColors.find(t => t.nome === nome);
+  if (!terr) {
+    const display = codigo ? `TD ${codigo} – ${nome}` : nome;
+    terr = { nome, codigo, label: display, cor: territorioPalette[colorIndex % territorioPalette.length] };
+    territorioColors.push(terr);
+    colorIndex++;
+  }
+  return terr.cor;
+}
+function generateInfoContent(properties) { 
+  const labels = {
+    NM_MUN: "Município:",
+    CD_MUN: "Código do Município:",
+    fid: "Código do Território:",
+    NM_TD: "Território de Desenvolvimento:",
+    AREA_KM2: "Área (km²):",
+    pib_porcent_Piaui: "PIB (%) Piauí:",
+    pop_porcent_Piaui: "População (%) Piauí:",
+    pib_porcent_TD: "PIB (%) TD:",
+    pop_porcent_TD: "População (%) TD:",
+    pib_2021: "PIB 2021:",
+    pop_censo2022: "População (Censo 2022):",
+    densidade_demografica: "Densidade demográfica:"
+  };
 
-    function generateInfoContent(properties) {
-      const labels = {
-        NM_MUN: "Município:",
-        CD_MUN: "Código do Município:",
-        fid: "Código do Território:",
-        NM_TD: "Território de Desenvolvimento:",
-        AREA_KM2: "Área (km²):",
-        pib_porcent_Piaui: "PIB (%) Piauí:",
-        pop_porcent_Piaui: "População (%) Piauí:",
-        pib_porcent_TD: "PIB (%) TD:",
-        pop_porcent_TD: "População (%) TD:",
-        pib_2021: "PIB 2021:",
-        pop_censo2022: "População (Censo 2022):",
-        densidade_demografica: "Densidade demográfica:"
-      };
-      const grupos = {
-        geografico: ["NM_MUN", "CD_MUN", "fid", "NM_TD", "AREA_KM2"],
-        populacional: ["pop_censo2022","densidade_demografica","pop_porcent_Piaui", "pop_porcent_TD"],
-        pib: ["pib_2021","pib_porcent_Piaui", "pib_porcent_TD"]
-      };
+  const grupos = {
+    geografico: ["NM_MUN", "CD_MUN", "fid", "NM_TD", "AREA_KM2"],
+    populacional: ["pop_censo2022","densidade_demografica","pop_porcent_Piaui", "pop_porcent_TD"],
+    pib: ["pib_2021","pib_porcent_Piaui", "pib_porcent_TD"]
+  };
 
-      function formatNumeroPTBR(numero, casasDecimais = 2) {
-        return numero.toLocaleString('pt-BR', {
-          minimumFractionDigits: casasDecimais,
-          maximumFractionDigits: casasDecimais
-        });
-      }
+  // Função para formatar número no formato pt-BR: 1234567.89 -> "1.234.567,89"
+  function formatNumeroPTBR(numero, casasDecimais = 2) {
+    return numero.toLocaleString('pt-BR', {
+      minimumFractionDigits: casasDecimais,
+      maximumFractionDigits: casasDecimais
+    });
+  }
 
-      function formatValor(key, valor) {
-        if (valor !== null && valor !== undefined) {
-          let num = Number(valor);
-          if (!isNaN(num)) {
-            if (["pib_porcent_Piaui", "pop_porcent_Piaui", "pib_porcent_TD", "pop_porcent_TD"].includes(key)) {
-              return num.toFixed(2).replace('.', ',') + "%";
-            }
-            return formatNumeroPTBR(num, 2);
-          }
-          return valor;
+  function formatValor(key, valor) {
+    if (valor !== null && valor !== undefined) {
+      let num = Number(valor);
+      if (!isNaN(num)) {
+        // Formata porcentagens com vírgula e % no final
+        if (["pib_porcent_Piaui", "pop_porcent_Piaui", "pib_porcent_TD", "pop_porcent_TD"].includes(key)) {
+          return num.toFixed(2).replace('.', ',') + "%";
         }
-        return "-";
+        // Para os demais numéricos, usa a formatação pt-BR com separador de milhar
+        return formatNumeroPTBR(num, 2);
       }
-
-      let content = "";
-
-      function montarTabelaGrupo(titulo, campos) {
-        let html = `
-          <div style="text-align: center; font-weight: bold; font-size: 1.1em; margin: 10px 0;">
-            ${titulo}
-          </div>
-          <table class="popup-table" style="border-collapse: collapse; width: 100%; font-size: 0.95em;">
-        `;
-        campos.forEach(key => {
-          if (key in properties) {
-            const label = labels[key] || key;
-            const valor = formatValor(key, properties[key]);
-            html += `
-              <tr>
-                <th style="text-align: left; padding: 6px 8px; border-bottom: 1px solid #ddd; font-weight: normal;">${label}</th>
-                <td style="text-align: right; padding: 6px 8px; border-bottom: 1px solid #ddd;">${valor}</td>
-              </tr>`;
-          }
-        });
-        html += "</table>";
-        return html;
-      }
-
-      content += montarTabelaGrupo("Informações Geográficas", grupos.geografico);
-      content += montarTabelaGrupo("Informações Populacionais", grupos.populacional);
-      content += montarTabelaGrupo("Informações de PIB", grupos.pib);
-
-      return content;
+      return valor; // Não é número
     }
+    return "-";
+  }
+
+  let content = "";
+
+  function montarTabelaGrupo(titulo, campos) {
+    let html = `
+      <div style="text-align: center; font-weight: bold; font-size: 1.1em; margin: 10px 0;">
+        ${titulo}
+      </div>
+      <table class="popup-table" style="border-collapse: collapse; width: 100%; font-size: 0.95em;">
+    `;
+    campos.forEach(key => {
+      if (key in properties) {
+        const label = labels[key] || key;
+        const valor = formatValor(key, properties[key]);
+        html += `
+          <tr>
+            <th style="text-align: left; padding: 6px 8px; border-bottom: 1px solid #ddd; font-weight: normal;">${label}</th>
+            <td style="text-align: right; padding: 6px 8px; border-bottom: 1px solid #ddd;">${valor}</td>
+          </tr>`;
+      }
+    });
+    html += "</table>";
+    return html;
+  }
+
+  content += montarTabelaGrupo("Informações Geográficas", grupos.geografico);
+  content += montarTabelaGrupo("Informações Populacionais", grupos.populacional);
+  content += montarTabelaGrupo("Informações de PIB", grupos.pib);
+
+  return content;
+}
 
     function onEachFeaturePopup(feature, layer) {
       if (feature.properties) {
-        const popupContent = generateInfoContent(feature.properties) +
+        const popupContent = generateInfoContent(feature.properties) + 
           `<button class="download-btn" style="margin-top:5px;">Baixar KML desta feição</button>`;
         layer.bindPopup(popupContent);
+
         layer.on('popupopen', () => {
           const btn = document.querySelector('.download-btn');
           if (btn) {
@@ -468,65 +460,87 @@
       }
     }
 
-    function styleTerritorios(feature) {
-      const nome = feature.properties.NM_TD || "Território";
-      const codigo = feature.properties.fid || "";
-      return {
-        color: getColorForTerritorio(nome, codigo),
-        weight: 2,
-        fillColor: getColorForTerritorio(nome, codigo),
-        fillOpacity: 0.4
-      };
-    }
-
+   function styleTerritorios(feature) {
+  const nome = feature.properties.NM_TD || "Território";
+  const codigo = feature.properties.fid || "";
+  return {
+    color: getColorForTerritorio(nome, codigo),
+    weight: 2,
+    fillColor: getColorForTerritorio(nome, codigo),
+    fillOpacity: 0.4
+  };
+}
     function highlightTerritory(nome) {
-      territoriosLayer.eachLayer(layer => {
-        if (layer.feature && layer.feature.properties.NM_TD === nome) {
-          map.fitBounds(layer.getBounds());
-          layer.setStyle({ color: 'red', weight: 4, fillOpacity: 1 });
-        } else {
-          layer.setStyle({ color: '#888', fillColor: '#ccc', fillOpacity: 0 });
-        }
+  territoriosLayer.eachLayer(layer => {
+    if (layer.feature && layer.feature.properties.NM_TD === nome) {
+      map.fitBounds(layer.getBounds());
+      layer.setStyle({
+        color: 'red',
+        weight: 4,
+        fillOpacity: 1
+      });
+    } else {
+      layer.setStyle({
+        color: '#888',
+        fillColor: '#ccc',
+        fillOpacity: 0
       });
     }
+  });
+}
 
-    function onEachTerritorio(feature, layer) {
-      layer.on({
-        mouseover: highlightFeature,
-        mouseout: e => territoriosLayer.resetStyle(e.target),
-        click: () => {
-          const territorioNome = feature.properties?.NM_TD;
-          const territorioCodigo = feature.properties?.fid;
-          const municipios = [];
-          municipiosLayer.eachLayer(mLayer => {
-            const p = mLayer.feature?.properties || {};
-            if ((p.NM_TD && territorioNome && p.NM_TD === territorioNome) ||
-                (p.fid && territorioCodigo && p.fid === territorioCodigo)) {
-              municipios.push(p.NM_MUN || "(sem nome)");
-            }
-          });
-          municipios.sort((a, b) => a.localeCompare(b, 'pt-BR'));
-          const baseHtml = generateInfoContent(feature.properties) +
-            `<button class="download-btn" style="margin-top:5px;">Baixar KML desta feição</button>`;
-          const listaHtml = municipios.length
-            ? `<hr><b>Municípios (${municipios.length}):</b>
-               <div style="max-height:150px;overflow:auto;margin-top:6px;">
-                 <ul style="margin:0;padding-left:18px;">
-                   ${municipios.map(n => `<li>${n}</li>`).join('')}
-                 </ul>
-               </div>`
-            : `<hr><i>Nenhum município associado encontrado.</i>`;
-          layer.bindPopup(baseHtml + listaHtml);
-          layer.openPopup();
+function onEachTerritorio(feature, layer) {
+  layer.on({
+    mouseover: highlightFeature,
+    mouseout: function (e) {
+      territoriosLayer.resetStyle(e.target);
+    },
+    click: function () {
+      const territorioNome = feature.properties?.NM_TD;
+      const territorioCodigo = feature.properties?.fid;
+
+      // Monta lista de municípios do território
+      const municipios = [];
+      municipiosLayer.eachLayer(mLayer => {
+        const p = mLayer.feature?.properties || {};
+        // verifica se NM_TD ou fid são iguais
+        if ((p.NM_TD && territorioNome && p.NM_TD === territorioNome) || 
+            (p.fid && territorioCodigo && p.fid === territorioCodigo)) {
+          municipios.push(p.NM_MUN || "(sem nome)");
         }
       });
-      onEachFeaturePopup(feature, layer);
-    }
 
-    const territoriosLayer = new L.GeoJSON.AJAX("territorios.geojson", {
-      style: styleTerritorios,
-      onEachFeature: onEachTerritorio
-    });
+      // ordena alfabeticamente
+      municipios.sort((a, b) => a.localeCompare(b, 'pt-BR'));
+
+      // popup base (já existia) + lista de municípios
+      const baseHtml = generateInfoContent(feature.properties) +
+        `<button class="download-btn" style="margin-top:5px;">Baixar KML desta feição</button>`;
+
+      const listaHtml = municipios.length
+        ? `<hr><b>Municípios (${municipios.length}):</b>
+           <div style="max-height:150px;overflow:auto;margin-top:6px;">
+             <ul style="margin:0;padding-left:18px;">
+               ${municipios.map(n => `<li>${n}</li>`).join('')}
+             </ul>
+           </div>`
+        : `<hr><i>Nenhum município associado encontrado.</i>`;
+
+      // atualiza o popup do território com a lista
+      layer.bindPopup(baseHtml + listaHtml);
+      layer.openPopup();
+    }
+  });
+
+  // mantém comportamento padrão do popup
+  onEachFeaturePopup(feature, layer);
+}
+
+const territoriosLayer = new L.GeoJSON.AJAX("territorios.geojson", {
+  style: styleTerritorios,
+  onEachFeature: onEachTerritorio
+});
+
     territoriosLayer.on('data:loaded', addLegend);
     territoriosLayer.addTo(map);
 
@@ -534,19 +548,26 @@
       return { color: '#000', weight: 1.5, fillOpacity: 0 };
     }
 
-    function highlightFeature(e) {
-      const layer = e.target;
-      layer.setStyle({ weight: 4, color: '#ff6600', fillColor: '#ff6600', fillOpacity: 0.5 });
-      layer.bringToFront();
-    }
-
-    let municipioSelecionado = null;
+   function highlightFeature(e) {
+  const layer = e.target;
+  layer.setStyle({ 
+    weight: 4,             // aumentar a espessura da borda
+    color: '#ff6600',      // cor laranja forte para a borda
+    fillColor: '#ff6600',  // mesmo laranja para preenchimento
+    fillOpacity: 0.5       // preenchimento semi-transparente
+  });
+  layer.bringToFront();
+}
+let municipioSelecionado = null;
     function resetHighlight(e) {
       municipiosLayer.resetStyle(e.target);
     }
 
     function onEachMunicipio(feature, layer) {
-      layer.on({ mouseover: highlightFeature, mouseout: resetHighlight });
+      layer.on({
+        mouseover: highlightFeature,
+        mouseout: resetHighlight
+      });
       if (feature.properties) {
         layer.bindPopup(generateInfoContent(feature.properties) +
           `<button class="download-btn" style="margin-top:5px;">Baixar KML desta feição</button>`);
@@ -568,7 +589,7 @@
       }
     }
 
-    const municipiosLayer = new L.GeoJSON.AJAX("municipios.geojson", {
+    const municipiosLayer = new L.GeoJSON.AJAX("municipios.geojson", { 
       style: styleMunicipios,
       onEachFeature: onEachMunicipio
     });
@@ -582,13 +603,16 @@
 
     function levenshtein(a, b) {
       const matrix = [];
-      for (let i = 0; i <= b.length; i++) matrix[i] = [i];
-      for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
-      for (let i = 1; i <= b.length; i++) {
-        for (let j = 1; j <= a.length; j++) {
-          matrix[i][j] = b.charAt(i-1) === a.charAt(j-1)
-            ? matrix[i-1][j-1]
-            : Math.min(matrix[i-1][j-1] + 1, matrix[i][j-1] + 1, matrix[i-1][j] + 1);
+      for(let i = 0; i <= b.length; i++){ matrix[i] = [i]; }
+      for(let j = 0; j <= a.length; j++){ matrix[0][j] = j; }
+      for(let i = 1; i <= b.length; i++){
+        for(let j = 1; j <= a.length; j++){
+          if(b.charAt(i-1) === a.charAt(j-1)){
+            matrix[i][j] = matrix[i-1][j-1];
+          } else {
+            matrix[i][j] = Math.min(matrix[i-1][j-1] + 1,
+              Math.min(matrix[i][j-1] + 1, matrix[i-1][j] +1));
+          }
         }
       }
       return matrix[b.length][a.length];
@@ -597,64 +621,97 @@
     searchInput.addEventListener('input', function () {
       const termo = this.value.trim().toLowerCase();
       listaMunicipios.innerHTML = '';
-      highlightedIndex = -1;
-      currentResultados = [];
-      if (!termo) { listaMunicipios.style.display = 'none'; return; }
+highlightedIndex = -1;
+currentResultados = [];
+      if (!termo) {
+        listaMunicipios.style.display = 'none';
+        return;
+        
+      }
 
       const resultados = [];
+
       municipiosLayer.eachLayer(layer => {
         const nomeMun = layer.feature.properties.NM_MUN;
         if (nomeMun) {
-          const lower = nomeMun.toLowerCase();
-          if (lower.includes(termo) || levenshtein(termo, lower) <= 3) {
+          const nomeLower = nomeMun.toLowerCase();
+          if (nomeLower.includes(termo)) {
             resultados.push({ nome: nomeMun, layer });
+          } else {
+            const dist = levenshtein(termo, nomeLower);
+            if (dist <= 3) {
+              resultados.push({ nome: nomeMun, layer });
+            }
           }
         }
       });
 
-      if (resultados.length === 0) { listaMunicipios.style.display = 'none'; return; }
-
-      resultados.sort((a, b) => a.nome.localeCompare(b.nome));
+      if (resultados.length === 0) {
+        listaMunicipios.style.display = 'none';
+        return;
+      }
+resultados.sort((a, b) => a.nome.localeCompare(b.nome));
       resultados.forEach(item => {
         const div = document.createElement('div');
         div.textContent = item.nome;
         div.addEventListener('click', () => {
-          map.fitBounds(item.layer.getBounds());
-          item.layer.openPopup();
-          if (municipioSelecionado) municipiosLayer.resetStyle(municipioSelecionado);
-          item.layer.setStyle({ weight: 4, color: '#ff6600', fillColor: '#ff6600', fillOpacity: 0.5 });
-          municipioSelecionado = item.layer;
-          listaMunicipios.style.display = 'none';
-          searchInput.value = item.nome;
-        });
+  map.fitBounds(item.layer.getBounds());
+  item.layer.openPopup();
+
+  if (municipioSelecionado) {
+    municipiosLayer.resetStyle(municipioSelecionado);
+  }
+
+  item.layer.setStyle({
+    weight: 4,
+    color: '#ff6600',
+    fillColor: '#ff6600',
+    fillOpacity: 0.5
+  });
+
+  municipioSelecionado = item.layer;
+
+  listaMunicipios.style.display = 'none';
+  searchInput.value = item.nome;
+});
         listaMunicipios.appendChild(div);
       });
+
       listaMunicipios.style.display = 'block';
     });
-
     searchInput.addEventListener('keydown', function(e) {
-      const itens = listaMunicipios.querySelectorAll('div');
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        if (highlightedIndex < itens.length - 1) highlightedIndex++;
-        updateHighlight(itens);
-      } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        if (highlightedIndex > 0) highlightedIndex--;
-        updateHighlight(itens);
-      } else if (e.key === 'Enter') {
-        if (highlightedIndex >= 0 && highlightedIndex < itens.length) itens[highlightedIndex].click();
-      }
-    });
-
-    function updateHighlight(itens) {
-      itens.forEach((item, i) => {
-        item.classList.toggle('highlighted', i === highlightedIndex);
-        if (i === highlightedIndex) item.scrollIntoView({ block: 'nearest' });
-      });
+  const itens = listaMunicipios.querySelectorAll('div');
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    if (highlightedIndex < itens.length - 1) {
+      highlightedIndex++;
+      updateHighlight(itens);
     }
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    if (highlightedIndex > 0) {
+      highlightedIndex--;
+      updateHighlight(itens);
+    }
+  } else if (e.key === 'Enter') {
+    if (highlightedIndex >= 0 && highlightedIndex < currentResultados.length) {
+      itens[highlightedIndex].click();
+    }
+  }
+});
 
-    document.addEventListener('click', e => {
+function updateHighlight(itens) {
+  itens.forEach((item, index) => {
+    if (index === highlightedIndex) {
+      item.classList.add('highlighted');
+      item.scrollIntoView({ block: 'nearest' });
+    } else {
+      item.classList.remove('highlighted');
+    }
+  });
+}
+
+    document.addEventListener('click', (e) => {
       if (!searchInput.contains(e.target) && !listaMunicipios.contains(e.target)) {
         listaMunicipios.style.display = 'none';
       }
@@ -664,9 +721,11 @@
       if (e.key === 'Enter') {
         const termo = this.value.trim().toLowerCase();
         if (!termo) return;
+
         let achou = false;
         municipiosLayer.eachLayer(layer => {
-          if (layer.feature.properties.NM_MUN.toLowerCase() === termo) {
+          const nomeMun = layer.feature.properties.NM_MUN;
+          if (nomeMun && nomeMun.toLowerCase() === termo) {
             map.fitBounds(layer.getBounds());
             layer.openPopup();
             achou = true;
@@ -678,170 +737,274 @@
     });
 
     function onEachLitigio(feature, layer) {
-      layer.on({ mouseover: highlightFeature, mouseout: e => litigioLayer.resetStyle(e.target) });
-      onEachFeaturePopup(feature, layer);
+  layer.on({
+    mouseover: highlightFeature,
+    mouseout: function(e) {
+      litigioLayer.resetStyle(e.target);
     }
-    const litigioLayer = new L.GeoJSON.AJAX("litigio.geojson", {
-      style: { color: 'red', weight: 2 },
-      onEachFeature: onEachLitigio
-    });
+  });
 
-    function onEachImperial(feature, layer) {
-      layer.on({ mouseover: highlightFeature, mouseout: e => linhaImperialLayer.resetStyle(e.target) });
-      onEachFeaturePopup(feature, layer);
+  onEachFeaturePopup(feature, layer);
+}
+
+const litigioLayer = new L.GeoJSON.AJAX("litigio.geojson", {
+  style: { color: 'red', weight: 2 },
+  onEachFeature: onEachLitigio
+});
+   
+function onEachImperial(feature, layer) {
+  layer.on({
+    mouseover: highlightFeature,
+    mouseout: function(e) {
+      linhaImperialLayer.resetStyle(e.target);
     }
-    const linhaImperialLayer = new L.GeoJSON.AJAX("linha_imperial.geojson", {
-      style: { color: 'blue', weight: 2, dashArray: '5,5' },
-      onEachFeature: onEachImperial
-    });
+  });
 
+  onEachFeaturePopup(feature, layer);
+}
+
+const linhaImperialLayer = new L.GeoJSON.AJAX("linha_imperial.geojson", {
+  style: { color: 'blue', weight: 2, dashArray: '5,5' },
+  onEachFeature: onEachImperial
+    });
     linhaImperialLayer.addTo(map);
-    litigioLayer.addTo(map);
-    litigioLayer.on('data:loaded', () => litigioLayer.bringToFront());
+     litigioLayer.addTo(map);
 
-    /* CONTROLE DE CAMADAS */
-    const baseMaps = { "OpenStreetMap": osmLayer, "Esri Satélite": esriSat, "Esri Terrain": esriTerrain, "Esri Road": esriRoad };
-    const overlayMaps = { "Territórios": territoriosLayer, "Municípios": municipiosLayer, "Litígio": litigioLayer, "Linha Imperial": linhaImperialLayer };
-    const layersControl = L.control.layers(baseMaps, overlayMaps, { collapsed: false }).addTo(map);
 
-    function addLegend() {
-      const legend = L.control({ position: 'bottomright' });
-      legend.onAdd = () => {
-        const div = L.DomUtil.create('div','legend');
-        div.innerHTML = '<div style="text-align:center;font-weight:bold;margin-bottom:5px;">Territórios de Desenvolvimento</div>';
-        territorioColors
-          .sort((a,b)=>a.codigo - b.codigo)
-          .forEach(t => {
-            div.innerHTML += `
-              <div class="territorio-item" data-nome="${t.nome}" style="display:flex;align-items:center;gap:6px;margin-bottom:6px;cursor:pointer;">
-                <i style="background:${t.cor};width:24px;height:24px;display:inline-block;"></i>
-                <span style="font-size:13px;">${t.label}</span>
-              </div>`;
-          });
-        div.innerHTML += '<hr style="margin:5px 0;"><small>Coordenação de Cartografia e Análise Espacial<br>CCAE/CIET/SEPLAN</small>';
-        return div;
-      };
-      legend.addTo(map);
-      setTimeout(() => {
-        document.querySelectorAll('.territorio-item').forEach(item => {
-          item.addEventListener('click', () => highlightTerritory(item.getAttribute('data-nome')));
-        });
-      }, 300);
-    }
+litigioLayer.on('data:loaded', () => {
+  litigioLayer.bringToFront();
+});
 
-    /* Lat/Lon -> UTM */
+    /* ==============================
+       CONTROLE DE CAMADAS
+       ============================== */
+    const baseMaps = {
+      "OpenStreetMap": osmLayer,
+      "Esri Satélite": esriSat,
+      "Esri Terrain": esriTerrain,
+      "Esri Road": esriRoad
+    }; 
+    const overlayMaps = {
+      "Territórios": territoriosLayer,
+      "Municípios": municipiosLayer,
+      "Litígio": litigioLayer,
+      "Linha Imperial": linhaImperialLayer
+    };
+  const layersControl = L.control.layers(baseMaps, overlayMaps, { collapsed: false }).addTo(map);
+
+   function addLegend() {
+  const legend = L.control({ position: 'bottomright' });
+  legend.onAdd = function () {
+    const div = L.DomUtil.create('div', 'legend');
+    div.innerHTML = '<div style="text-align: center; font-weight: bold; margin-bottom: 5px;">Territórios de Desenvolvimento</div>';
+
+  territorioColors
+  .sort((a, b) => a.codigo - b.codigo)
+  .forEach(t => {
+    div.innerHTML += `
+  <div class="territorio-item" data-nome="${t.nome}" style="
+    cursor:pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+  ">
+    <i style="background:${t.cor}; width:24px; height:24px; display:inline-block;"></i>
+    <span style="font-size: 13px;">${t.label}</span>
+  </div>
+`;
+  });
+    div.innerHTML += '<hr style="margin:5px 0;">';
+    div.innerHTML += '<small>Coordenação de Cartografia e Análise Espacial<br>CCAE/CIET/SEPLAN</small>';
+    return div;
+  };
+
+  legend.addTo(map);
+
+ 
+}
+setTimeout(() => {
+  document.querySelectorAll('.territorio-item').forEach(item => {
+    item.addEventListener('click', () => {
+      const nome = item.getAttribute('data-nome');
+      highlightTerritory(nome);
+    });
+  });
+}, 300);
+
+
+    /* ========== Função Lat/Lon -> UTM ========== */
     function latLonToUTM(lat, lon) {
-      const a=6378137.0, f=1/298.257223563, k0=0.9996;
-      const e=Math.sqrt(f*(2-f));
-      const zone=Math.floor((lon+180)/6)+1;
-      const λ0=((zone-1)*6-180+3)*Math.PI/180;
-      const φ=lat*Math.PI/180, λ=lon*Math.PI/180;
-      const N=a/Math.sqrt(1-e*e*Math.sin(φ)**2), T=Math.tan(φ)**2;
-      const C=(e*e/(1-e*e))*Math.cos(φ)**2, A=Math.cos(φ)*(λ-λ0);
-      const M=a*((1-e*e/4-3*e**4/64-5*e**6/256)*φ
-        -(3*e*e/8+3*e**4/32+45*e**6/1024)*Math.sin(2*φ)
-        +(15*e**4/256+45*e**6/1024)*Math.sin(4*φ)
-        -(35*e**6/3072)*Math.sin(6*φ));
-      let x=k0*N*(A+(1-T+C)*A**3/6+(5-18*T+T**2+72*C-58*(e*e/(1-e*e)))*A**5/120)+500000;
-      let y=k0*(M+N*Math.tan(φ)*(A**2/2+(5-T+9*C+4*C**2)*A**4/24+(61-58*T+T**2+600*C-330*(e*e/(1-e*e)))*A**6/720));
-      if (lat<0) y+=10000000;
+      const a = 6378137.0;
+      const f = 1 / 298.257223563;
+      const k0 = 0.9996;
+      const e = Math.sqrt(f * (2 - f));
+
+      const zone = Math.floor((lon + 180) / 6) + 1;
+      const λ0 = (zone - 1) * 6 - 180 + 3;
+      const λ0rad = λ0 * Math.PI / 180;
+
+      const φ = lat * Math.PI / 180;
+      const λ = lon * Math.PI / 180;
+
+      const N = a / Math.sqrt(1 - e * e * Math.sin(φ) * Math.sin(φ));
+      const T = Math.tan(φ) * Math.tan(φ);
+      const C = (e * e / (1 - e * e)) * Math.cos(φ) * Math.cos(φ);
+      const A = Math.cos(φ) * (λ - λ0rad);
+
+      const M = a * (
+        (1 - e * e / 4 - 3 * e ** 4 / 64 - 5 * e ** 6 / 256) * φ
+        - (3 * e * e / 8 + 3 * e ** 4 / 32 + 45 * e ** 6 / 1024) * Math.sin(2 * φ)
+        + (15 * e ** 4 / 256 + 45 * e ** 6 / 1024) * Math.sin(4 * φ)
+        - (35 * e ** 6 / 3072) * Math.sin(6 * φ)
+      );
+
+      const x = k0 * N * (A + (1 - T + C) * A ** 3 / 6
+        + (5 - 18 * T + T * T + 72 * C - 58 * (e * e / (1 - e * e))) * A ** 5 / 120) + 500000.0;
+
+      let y = k0 * (M + N * Math.tan(φ) * (A ** 2 / 2 + (5 - T + 9 * C + 4 * C ** 2) * A ** 4 / 24
+        + (61 - 58 * T + T * T + 600 * C - 330 * (e * e / (1 - e * e))) * A ** 6 / 720));
+
+      if (lat < 0) y += 10000000.0;
+
       return { x, y, zone };
     }
 
-    map.on('mousemove', e => {
-      const lat=e.latlng.lat.toFixed(5), lon=e.latlng.lng.toFixed(5);
-      const utm=latLonToUTM(e.latlng.lat, e.latlng.lng);
-      document.getElementById('coords').innerHTML =
-        `Lat: ${lat}, Lon: ${lon}<br>E: ${utm.x.toFixed(2)}, N: ${utm.y.toFixed(2)}<br>Fuso: ${utm.zone}`;
+    /* ===== Atualiza coordenadas ===== */
+    const coordsDiv = document.getElementById('coords');
+    map.on('mousemove', function (e) {
+      const lat = e.latlng.lat.toFixed(5);
+      const lon = e.latlng.lng.toFixed(5);
+      const utm = latLonToUTM(e.latlng.lat, e.latlng.lng);
+      coordsDiv.innerHTML = `Lat: ${lat}, Lon: ${lon}<br>E: ${utm.x.toFixed(2)}, N: ${utm.y.toFixed(2)}<br>Fuso: ${utm.zone}`;
     });
 
-    /* Upload KML/KMZ */
-    const uploadBtnEl=document.getElementById('uploadBtn'),
-          uploadInputEl=document.getElementById('uploadInput');
-    uploadBtnEl.addEventListener('click', () => uploadInputEl.click());
-    uploadInputEl.addEventListener('change', async function(e) {
-      const files=Array.from(e.target.files);
+    /* ===== Upload de KML / KMZ ===== */  // <-- ADIÇÃO
+    const uploadBtnEl = document.getElementById('uploadBtn');     // <-- ADIÇÃO
+    const uploadInputEl = document.getElementById('uploadInput'); // <-- ADIÇÃO
+
+    uploadBtnEl.addEventListener('click', () => {                 // <-- ADIÇÃO
+      uploadInputEl.click();
+    });                                                           // <-- ADIÇÃO
+
+    uploadInputEl.addEventListener('change', async function(e) {  // <-- ADIÇÃO
+      const files = Array.from(e.target.files);
       for (const file of files) {
+        const name = file.name;
         try {
-          if (file.name.toLowerCase().endsWith('.kml')) {
-            addKMLTextToMap(await file.text(), file.name);
-          } else if (file.name.toLowerCase().endsWith('.kmz')) {
-            const zip=await JSZip.loadAsync(await file.arrayBuffer());
-            const entry=Object.values(zip.files).find(z=>z.name.toLowerCase().endsWith('.kml'));
-            if (!entry) { alert('KMZ sem KML: '+file.name); continue; }
-            addKMLTextToMap(await entry.async('text'), file.name);
-          } else alert('Formato não suportado: '+file.name);
-        } catch(err) { console.error(err); alert('Erro ao carregar '+file.name+': '+err.message); }
+          if (name.toLowerCase().endsWith('.kml')) {
+            const text = await file.text();
+            addKMLTextToMap(text, name);
+          } else if (name.toLowerCase().endsWith('.kmz')) {
+            const arrayBuf = await file.arrayBuffer();
+            const zip = await JSZip.loadAsync(arrayBuf);
+            let kmlEntry = null;
+            zip.forEach((relPath, zipEntry) => {
+              if (!kmlEntry && relPath.toLowerCase().endsWith('.kml')) {
+                kmlEntry = zipEntry;
+              }
+            });
+            if (!kmlEntry) {
+              alert('KMZ sem arquivo KML interno: ' + name);
+              continue;
+            }
+            const kmlText = await kmlEntry.async('text');
+            addKMLTextToMap(kmlText, name);
+          } else {
+            alert('Formato não suportado: ' + name);
+          }
+        } catch (err) {
+          console.error(err);
+          alert('Erro ao carregar ' + name + ': ' + err.message);
+        }
       }
+      // permite reenviar o mesmo arquivo depois
       uploadInputEl.value = '';
-    });
+    });                                                           // <-- ADIÇÃO
 
-    function addKMLTextToMap(kmlText, layerName) {
+    function addKMLTextToMap(kmlText, layerName) {                // <-- ADIÇÃO
       const kmlLayer = omnivore.kml.parse(kmlText);
       kmlLayer.addTo(map);
-      layersControl.addOverlay(kmlLayer, layerName);
-      try { map.fitBounds(kmlLayer.getBounds()); } catch {}
-    }
-
-    /* Rosa dos Ventos SBG */
-    const rosaSBG=L.control({ position:"bottomleft" });
-    rosaSBG.onAdd=() => {
-      const div=L.DomUtil.create("div","rosa-sbg");
-      div.innerHTML=`
+      if (layersControl) {
+        layersControl.addOverlay(kmlLayer, layerName);
+      }
+      // tenta enquadrar
+      try { map.fitBounds(kmlLayer.getBounds()); } catch(_) {}
+    }                                                             // <-- ADIÇÃO
+     // Controle para Rosa dos Ventos SBG em SVG
+const rosaSBG = L.control({ position: "bottomleft" }); 
+rosaSBG.onAdd = function () {
+  const div = L.DomUtil.create("div", "rosa-sbg");
+  div.innerHTML = `
+    
 <svg width="140" height="140" viewBox="0 0 140 140" xmlns="http://www.w3.org/2000/svg">
+  <!-- Triângulo apontando para cima -->
   <polygon points="70,40 90,80 50,80" fill="black" />
+
+  <!-- Letra N acima do triângulo, centralizada -->
   <text x="70" y="30" font-size="36" font-weight="bold" fill="black" stroke="black" stroke-width="1" text-anchor="middle" dominant-baseline="middle">N</text>
-</svg>`;
-      return div;
-    };
-    rosaSBG.addTo(map);
-    map.on('movestart', ()=> territoriosLayer.resetStyle());
+</svg>
 
-    /* União para máscara */
-    Promise.all([
-      new Promise(r=> territoriosLayer.on('data:loaded',r)),
-      new Promise(r=> litigioLayer.on('data:loaded',r)),
-      new Promise(r=> linhaImperialLayer.on('data:loaded',r))
-    ]).then(() => {
-      const all=[...territoriosLayer.toGeoJSON().features, ...litigioLayer.toGeoJSON().features, ...linhaImperialLayer.toGeoJSON().features];
-      let merged=all[0];
-      for (let i=1;i<all.length;i++) {
-        try { merged=turf.union(merged, all[i]); } catch(e){ console.warn('Erro unir:',e); }
-      }
-      const estadoPiauiLayer=L.geoJSON(merged, {
-        style:{ color:'yellow', weight:3, fillColor:'transparent', fillOpacity:0 },
-        onEachFeature:(f,l)=>l.bindPopup("Estado do Piauí")
-      }).addTo(map);
-      estadoPiauiLayer.bringToBack();
-      layersControl.addOverlay(estadoPiauiLayer,"Estado do Piauí");
-      const worldBounds=turf.bboxPolygon([-90,-60,-25,15]);
-      const mask=turf.difference(worldBounds, merged);
-      L.geoJSON(mask,{ style:{ fillColor:'black', fillOpacity:0.5, color:'black', weight:0 }, interactive:false }).addTo(map);
-    });
 
-    // Funções de toggle
-    function toggleLegend(){
-      const legend=document.querySelector('.legend'),
-            btn=document.querySelector('.legend-toggle');
-      if (legend.style.display==='none'){
-        legend.style.display='block'; btn.innerHTML='⮝ Legenda';
-      } else {
-        legend.style.display='none'; btn.innerHTML='⮟ Legenda';
-      }
+  `;
+  return div;
+};
+rosaSBG.addTo(map);
+map.on('movestart', () => {
+  territoriosLayer.resetStyle();
+});
+let estadoPiauiLayer;
+
+Promise.all([
+  new Promise(resolve => territoriosLayer.on('data:loaded', resolve)),
+  new Promise(resolve => litigioLayer.on('data:loaded', resolve)),
+  new Promise(resolve => linhaImperialLayer.on('data:loaded', resolve))
+]).then(() => {
+  const territoriosFeatures = territoriosLayer.toGeoJSON().features;
+  const litigioFeatures = litigioLayer.toGeoJSON().features;
+  const imperialFeatures = linhaImperialLayer.toGeoJSON().features;
+
+  const allFeatures = [...territoriosFeatures, ...litigioFeatures, ...imperialFeatures];
+
+  let merged = allFeatures[0];
+  for (let i = 1; i < allFeatures.length; i++) {
+    try {
+      merged = turf.union(merged, allFeatures[i]);
+    } catch (e) {
+      console.warn('Erro ao unir feições:', e);
     }
+  }
 
-    function toggleSearch(){
-      const input=document.getElementById('searchMunicipio'),
-            lista=document.getElementById('listaMunicipios'),
-            btn=document.querySelector('.search-toggle');
-      if (input.style.display==='block'){
-        input.style.display='none'; lista.style.display='none';
-        btn.textContent='🔍 Buscar';
-      } else {
-        input.style.display='block'; btn.textContent='✖ Fechar';
-        input.focus();
-      }
+  // Adiciona camada do Estado do Piauí (com litígio e linha imperial)
+  estadoPiauiLayer = L.geoJSON(merged, {
+    style: {
+      color: 'yellow',
+      weight: 3,
+      fillColor: 'transparent',
+      fillOpacity: 0
+    },
+    onEachFeature: function (feature, layer) {
+      layer.bindPopup("Estado do Piauí ");
     }
+  });
+  estadoPiauiLayer.addTo(map);
+estadoPiauiLayer.bringToBack();
+  layersControl.addOverlay(estadoPiauiLayer, "Estado do Piauí");
+
+  // Fundo escurecido com "buraco" no Piauí
+  const worldBounds = turf.bboxPolygon([-90, -60, -25, 15]); // Ajustável
+  const mask = turf.difference(worldBounds, merged);
+
+  const escurecidoLayer = L.geoJSON(mask, {
+    style: {
+      fillColor: 'black',
+      fillOpacity: 0.5,
+      color: 'black',
+      weight: 0
+    },
+    interactive: false
+  }).addTo(map);
+});
   </script>
 </body>
 </html>
