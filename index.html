@@ -487,24 +487,64 @@ const grupos = {
     fillOpacity: 0.4
   };
 }
-    function highlightTerritory(nome) {
+ let territorioSelecionado = null;
+
+function highlightTerritory(nome) {
   territoriosLayer.eachLayer(layer => {
-    if (layer.feature && layer.feature.properties.NM_TD === nome) {
-      map.fitBounds(layer.getBounds());
+    if (!layer.feature) return;
+
+    const nomeTerr = layer.feature.properties.NM_TD;
+    const codigoTerr = layer.feature.properties.fid;
+
+    if (nomeTerr === nome) {
+      // Território selecionado → cor original mais forte
+      const cor = getColorForTerritorio(nomeTerr, codigoTerr);
       layer.setStyle({
-        color: 'red',
-        weight: 4,
-        fillOpacity: 1
+        color: cor,
+        weight: 3,
+        fillColor: cor,
+        fillOpacity: 0.8 // mais forte
       });
+
+      // Aproxima no território
+      map.fitBounds(layer.getBounds());
+
     } else {
+      // Outros territórios → cinza escuro
       layer.setStyle({
-        color: '#888',
-        fillColor: '#ccc',
-        fillOpacity: 0
+        color: "#222",       // cinza escuro borda
+        weight: 1,
+        fillColor: "#222",   // cinza escuro preenchimento
+        fillOpacity: 0.8     // visível, mas apagado
       });
     }
   });
+
+  // Garante que hover dos municípios continue funcionando
+  municipiosLayer.eachLayer(mLayer => {
+    mLayer.off("mouseover", highlightFeature);
+    mLayer.off("mouseout", resetHighlight);
+
+    mLayer.on({
+      mouseover: highlightFeature,
+      mouseout: resetHighlight
+    });
+  });
+
+
+
+  // Marca na legenda
+  document.querySelectorAll('.territorio-item').forEach(item => {
+    if (item.getAttribute('data-nome') === nome) {
+      item.style.fontWeight = "bold";
+      item.style.color = "#000";
+    } else {
+      item.style.fontWeight = "normal";
+      item.style.color = "";
+    }
+  });
 }
+
 
 function onEachTerritorio(feature, layer) {
   layer.on({
@@ -1150,9 +1190,7 @@ rosaSBG.onAdd = function () {
   return div;
 };
 rosaSBG.addTo(map);
-map.on('movestart', () => {
-  territoriosLayer.resetStyle();
-});
+
 let estadoPiauiLayer;
 
 Promise.all([
@@ -1204,6 +1242,14 @@ estadoPiauiLayer.bringToBack();
     },
     interactive: false
   }).addTo(map);
+});
+document.addEventListener('keydown', function (e) {
+  if (e.key === "Escape") {
+    territorioSelecionado = null;
+    territoriosLayer.eachLayer(layer => {
+      territoriosLayer.resetStyle(layer); // volta para o estilo original
+    });
+  }
 });
   </script>
 </body>
