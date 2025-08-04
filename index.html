@@ -769,14 +769,14 @@ function onEachMunicipio(feature, layer) {
   }
 }
 
-// Evento global para limpar seleção com ESC
+// Evento global para limpar seleção e fechar popup com ESC
 document.addEventListener("keydown", function (e) {
   if (e.key === "Escape" && municipioSelecionado) {
-    municipiosLayer.resetStyle(municipioSelecionado);
+    municipioSelecionado.closePopup(); // Fecha popup
+    municipiosLayer.resetStyle(municipioSelecionado); // Restaura estilo original
     municipioSelecionado = null;
   }
 });
-
 
     const municipiosLayer = new L.GeoJSON.AJAX("municipios.geojson", { 
       style: styleMunicipios,
