@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <title>GEO-PI</title>
-  <meta name="viewport" content="width=1024, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <style>
     * {
@@ -38,7 +38,19 @@
       box-shadow: 0 0 6px rgba(0,0,0,0.3);
     }
 
-
+    /* Responsivo para telas menores */
+    @media (max-width: 600px) {
+      .legend {
+        position: absolute;
+        bottom: 10px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 90vw;
+        max-height: 40vh;
+        padding: 8px;
+        font-size: 13px;
+        z-index: 5000;
+      }
       /* Botão de recolher legenda */
       .legend-toggle {
         display: block;
@@ -55,7 +67,7 @@
         z-index: 6000;
         cursor: pointer;
       }
-    
+    }
 
     .legend i {
       width: 58px;
@@ -118,7 +130,15 @@
       font-size: 1.25rem;
     }
 
-  
+    /* Ajustes para telas pequenas */
+    @media (max-width: 600px) {
+      .map-title {
+        position: relative;
+        text-align: center;
+        font-size: 16px;
+        padding: 5px;
+        margin-top: 5px;
+      }
 
       #searchMunicipio {
         top: 60px;
@@ -126,9 +146,16 @@
         padding: 0.5em 2em;
         font-size: 1rem;
       }
-    
+    }
 
- 
+    @media (max-width: 768px) {
+      .map-title,
+      .leaflet-control-search {
+        width: 95% !important;
+        max-width: none !important;
+        margin: 10px auto;
+        display: block;
+      }
 
       .leaflet-control-layers {
         top: auto;
@@ -140,7 +167,7 @@
         bottom: 60px;
         left: 10px;
       }
-    
+    }
 
     #listaMunicipios {
       position: absolute;
@@ -160,7 +187,14 @@
       font-size: 16px;
     }
 
-  
+    @media (max-width: 600px) {
+      #listaMunicipios {
+        top: calc(60px + 2em);
+        width: 80vw;
+        max-width: none;
+        min-width: auto;
+      }
+    }
 
     #listaMunicipios div {
       padding: 4px 8px;
@@ -200,7 +234,16 @@
       white-space: nowrap;
     }
 
-  
+    @media (max-width: 600px) {
+      .map-title {
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: 1rem;
+        max-width: 95vw;
+        white-space: normal;
+        padding: 0.4em 0.8em;
+      }
+    }
 
     .leaflet-control-layers {
       margin-top: 0px !important;
