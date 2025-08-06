@@ -309,14 +309,7 @@ path.leaflet-interactive:focus {
   }
 }
 
-/* Opcional: mover barra no mobile */
-@media (max-width: 768px) {
-  .leaflet-control-layers {
-    bottom: 60px;
-    right: 10px;
-    top: auto;
-  }
-}
+
 .leaflet-control-layers {
   z-index: 3000 !important;       /* acima da seta norte (que tem 2000) */
   margin-top: 60px !important;    /* espaço para a seta não sobrepor */
@@ -371,6 +364,11 @@ path.leaflet-interactive:focus {
   0% { transform: scale(1); background-color: #007bff; }
   50% { transform: scale(1.08); background-color: #0056b3; }
   100% { transform: scale(1); background-color: #007bff; }
+}
+/* Painel de camadas no canto superior direito */
+.leaflet-top.leaflet-right {
+  right: 1755px !important; /* distância da borda direita */
+  top: 50px !important;   /* distância do topo */
 }
 
 
