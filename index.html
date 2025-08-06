@@ -141,31 +141,30 @@ html, body {
     }
 
     /* Ajustes para telas pequenas */
-    @media (max-width: 600px) {
-      .map-title {
-        position: relative;
-        text-align: center;
-        font-size: 16px;
-        padding: 5px;
-        margin-top: 5px;
-      }
+ @media (max-width: 200px) {
+  .map-title {
+    position: absolute;
+    top: 10px;
+    left: 10px; /* canto esquerdo */
+    transform: none; /* remove centralização */
+    font-size: 16px;
+    padding: 2px 4px;
+    max-width: none; /* impede limite de largura */
+    white-space: nowrap; /* impede quebrar linha */
+    overflow: hidden; /* caso texto seja maior, corta */
+    text-overflow: ellipsis; /* adiciona "..." se cortar */
+  }
+
 
       #searchMunicipio {
-        top: 60px;
+        top: 200px;
         width: 80vw;
         padding: 0.5em 2em;
         font-size: 1rem;
       }
-    }
+    
 
-    @media (max-width: 768px) {
-      .map-title,
-      .leaflet-control-search {
-        width: 95% !important;
-        max-width: none !important;
-        margin: 10px auto;
-        display: block;
-      }
+    
 
       .leaflet-control-layers {
   z-index: 3000 !important; 
@@ -324,8 +323,8 @@ path.leaflet-interactive:focus {
 }
 #searchContainer {
   position: absolute;
-  top: 30px;
-  left: 70%;
+  top: 240px;
+  left: 5%;
   transform: translateX(-50%);
   display: flex;
   align-items: center;
