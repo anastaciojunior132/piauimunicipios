@@ -362,7 +362,16 @@ path.leaflet-interactive:focus {
 #searchContainer.expanded #searchMunicipio {
   display: block;
 }
+/* Animação para destacar o botão "Clique aqui" */
+.legend-toggle.attention {
+  animation: pulseAttention 1.5s infinite ease-in-out;
+}
 
+@keyframes pulseAttention {
+  0% { transform: scale(1); background-color: #007bff; }
+  50% { transform: scale(1.08); background-color: #0056b3; }
+  100% { transform: scale(1); background-color: #007bff; }
+}
 
 
   </style>
@@ -1169,19 +1178,18 @@ document.querySelector('.leaflet-control-layers').style.marginTop = '60px';
 
 
 
-
 function addLegend() {
   const legendControl = L.control({ position: 'bottomright' });
   
   legendControl.onAdd = function () {
     const container = L.DomUtil.create('div');
 
-    // Botão de recolher
-    const toggleBtn = L.DomUtil.create('button', 'legend-toggle', container);
-    toggleBtn.innerHTML = "Ocultar legenda";
+    // Botão começa piscando
+const toggleBtn = L.DomUtil.create('button', 'legend-toggle attention', container);
+toggleBtn.innerHTML = "Clique aqui para selecionar o território";
 
     // Div da legenda
-    const legendDiv = L.DomUtil.create('div', 'legend', container);
+    const legendDiv = L.DomUtil.create('div', 'legend collapsed', container); // já inicia fechada
     legendDiv.innerHTML = '<div style="text-align: center; font-weight: bold; margin-bottom: 5px;">Territórios de Desenvolvimento</div>';
 
     territorioColors
@@ -1199,11 +1207,15 @@ function addLegend() {
     legendDiv.innerHTML += '<small>Coordenação de Cartografia e Análise Espacial<br>CCAE/CIET/SEPLAN</small>';
 
     // Evento para recolher/expandir
-    toggleBtn.addEventListener('click', () => {
-      legendDiv.classList.toggle('collapsed');
-      toggleBtn.innerHTML = legendDiv.classList.contains('collapsed') ? "Mostrar legenda" : "Ocultar legenda";
-    });
+   toggleBtn.addEventListener('click', () => {
+  legendDiv.classList.toggle('collapsed');
+  toggleBtn.innerHTML = legendDiv.classList.contains('collapsed') 
+    ? "Clique aqui para selecionar o território" 
+    : "Ocultar territórios";
 
+  // Remove efeito piscando na primeira vez que o usuário clicar
+  toggleBtn.classList.remove('attention');
+});
     return container;
   };
 
@@ -1219,7 +1231,6 @@ function addLegend() {
     });
   }, 300);
 }
-
     /* ========== Função Lat/Lon -> UTM ========== */
     function latLonToUTM(lat, lon) {
       const a = 6378137.0;
