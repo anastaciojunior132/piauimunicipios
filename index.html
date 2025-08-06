@@ -10,72 +10,82 @@
       font-family: Arial, sans-serif !important;
     }
 
-    html, body {
-      margin: 0;
-      padding: 0;
-      height: 100%;
-      width: 100%;
-    }
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  width: 100%;
+  overflow: hidden; /* impede rolagem */
+}
 
-    #map {
-      height: 100% !important;
-      width: 100% !important;
-      position: absolute;
-      top: 0;
-      left: 0;
-    }
+#map {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100% !important;
+  height: 100% !important;
+}
 
-    .legend {
-      background: white;
-      line-height: 18px;
-      color: #333;
-      padding: 12px;
-      overflow-y: auto;
-      font-size: 14px;
-      border-radius: 6px;
-      max-height: 50vh;
-      max-width: 300px;
-      box-shadow: 0 0 6px rgba(0,0,0,0.3);
-    }
+/* Legenda padrão */
+.legend {
+  background: white;
+  line-height: 18px;
+  color: #333;
+  padding: 12px;
+  overflow-y: auto;
+  font-size: 14px;
+  border-radius: 6px;
+  max-height: calc(100vh - 120px); /* deixa espaço p/ topo e rodapé */
+  max-width: 300px;
+  box-shadow: 0 0 6px rgba(0,0,0,0.3);
+  transition: max-height 0.3s ease, opacity 0.3s ease, padding 0.3s ease;
+}
 
-    /* Responsivo para telas menores */
-    @media (max-width: 600px) {
-      .legend {
-        position: absolute;
-        bottom: 10px;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 90vw;
-        max-height: 40vh;
-        padding: 8px;
-        font-size: 13px;
-        z-index: 5000;
-      }
-      /* Botão de recolher legenda */
-      .legend-toggle {
-        display: block;
-        position: absolute;
-        bottom: 10px;
-        left: 50%;
-        transform: translateX(-50%);
-        background: #007bff;
-        color: white;
-        border: none;
-        padding: 5px 12px;
-        border-radius: 4px;
-        font-size: 14px;
-        z-index: 6000;
-        cursor: pointer;
-      }
-    }
+/* Botão de recolher legenda */
+.legend-toggle {
+  display: block;
+  background: #007bff;
+  color: white;
+  border: none;
+  padding: 6px 14px;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  margin-bottom: 6px;
+}
 
-    .legend i {
-      width: 58px;
-      height: 18px;
-      float: left;
-      margin-right: 8px;
-      opacity: 0.7;
-    }
+/* Estado recolhido */
+.legend.collapsed {
+  max-height: 0 !important;
+  padding: 0 !important;
+  overflow: hidden;
+  opacity: 0;
+}
+
+@media (max-width: 768px) {
+  .legend {
+    position: absolute;
+    bottom: 10px; /* encosta mais no rodapé */
+    left: 50%;
+    transform: translateX(-50%);
+    width: 90vw;
+    max-height: calc(60vh); /* só 60% da altura útil */
+    font-size: 13px;
+    z-index: 5000;
+  }
+  .legend-toggle {
+    margin-bottom: 6px; /* só um pequeno espaço */
+    position: relative; /* não fixa no rodapé */
+    left: 0;
+    transform: none;
+  }
+
+  /* Evita que a legenda empurre o mapa */
+  #map {
+    height: 100% !important;
+  }
+}
+
 
     #downloadBtn {
       position: absolute;
@@ -158,14 +168,13 @@
       }
 
       .leaflet-control-layers {
-        top: auto;
-        bottom: 10px;
-        right: 10px;
-      }
+  z-index: 3000 !important; 
+  margin-top: 10px !important; /* só um pequeno espaço do topo */
+}
 
       .legend {
         bottom: 60px;
-        left: 10px;
+        left: 0px;
       }
     }
 
@@ -286,7 +295,77 @@
     }
 path.leaflet-interactive:focus {
   outline: none;
+}/* Ajusta a barra de camadas para telas pequenas */
+@media (max-width: 768px) {
+  .leaflet-control-layers {
+    font-size: 10px; /* Texto menor */
+    max-height: 200px; /* Limita altura */
+    overflow-y: auto; /* Permite rolar */
+    padding: 4px;
+  }
+
+  .leaflet-control-layers-list {
+    max-height: 150px;
+    overflow-y: auto;
+  }
 }
+
+/* Opcional: mover barra no mobile */
+@media (max-width: 768px) {
+  .leaflet-control-layers {
+    bottom: 60px;
+    right: 10px;
+    top: auto;
+  }
+}
+.leaflet-control-layers {
+  z-index: 3000 !important;       /* acima da seta norte (que tem 2000) */
+  margin-top: 60px !important;    /* espaço para a seta não sobrepor */
+}
+#searchContainer {
+  position: absolute;
+  top: 30px;
+  left: 70%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  z-index: 3000;
+  transition: width 0.3s ease;
+  width: 40px; /* largura só do botão quando recolhido */
+  overflow: hidden;
+  background: white;
+  border-radius: 40px;
+  border: 1px solid #ccc;
+}
+
+#searchToggle {
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 0 8px;
+}
+
+#searchMunicipio {
+  flex: 1;
+  border: none;
+  outline: none;
+  font-size: 1rem;
+  padding: 8px;
+  display: none;
+}
+
+/* Quando expandido */
+#searchContainer.expanded {
+  width: 380px; /* largura da barra aberta */
+}
+
+#searchContainer.expanded #searchMunicipio {
+  display: block;
+}
+
+
+
   </style>
 </head>
 <body>
@@ -298,8 +377,11 @@ path.leaflet-interactive:focus {
   <button id="uploadBtn">Upload KML</button>
   <input type="file" id="uploadInput" accept=".kml,.kmz,.xml" multiple />
   
+  <div id="searchContainer">
+  <button id="searchToggle">🔍</button>
   <input type="text" id="searchMunicipio" placeholder="Pesquisar município" />
-  <div id="listaMunicipios"></div>
+</div>
+<div id="listaMunicipios"></div>
   <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
 
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
@@ -313,12 +395,13 @@ path.leaflet-interactive:focus {
     const map = L.map('map').setView([-7, -42], 7.48);
     L.control.scale().addTo(map);
 
-    const north = L.control({position: "topright"});
-    north.onAdd = function(map) {
-      const div = L.DomUtil.create("div", "north-arrow");
-      return div;
-    };
-    north.addTo(map);
+const north = L.control({position: "topright"});
+north.onAdd = function(map) {
+  const div = L.DomUtil.create("div", "north-arrow");
+  div.style.marginTop = "100px"; // empurra a seta para baixo
+  return div;
+};
+north.addTo(map);
 
     // Camadas base
     const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -1076,53 +1159,67 @@ litigioLayer.bringToFront();
       "Litígio": litigioLayer,
       "Linha Imperial": linhaImperialLayer
     };
-  const layersControl = L.control.layers(baseMaps, overlayMaps, { collapsed: false }).addTo(map);
+ const layersControl = L.control.layers(baseMaps, overlayMaps, {
+  collapsed: false,
+  position: 'topright' // coloca no canto superior direito
+}).addTo(map);
+
+// Ajusta espaçamento para não sobrepor a seta norte
+document.querySelector('.leaflet-control-layers').style.marginTop = '60px';
 
 
 
 
 
+function addLegend() {
+  const legendControl = L.control({ position: 'bottomright' });
+  
+  legendControl.onAdd = function () {
+    const container = L.DomUtil.create('div');
 
-   function addLegend() {
-  const legend = L.control({ position: 'bottomright' });
-  legend.onAdd = function () {
-    const div = L.DomUtil.create('div', 'legend');
-    div.innerHTML = '<div style="text-align: center; font-weight: bold; margin-bottom: 5px;">Territórios de Desenvolvimento</div>';
+    // Botão de recolher
+    const toggleBtn = L.DomUtil.create('button', 'legend-toggle', container);
+    toggleBtn.innerHTML = "Ocultar legenda";
 
-  territorioColors
-  .sort((a, b) => a.codigo - b.codigo)
-  .forEach(t => {
-    div.innerHTML += `
-  <div class="territorio-item" data-nome="${t.nome}" style="
-    cursor:pointer;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    margin-bottom: 6px;
-  ">
-    <i style="background:${t.cor}; width:24px; height:24px; display:inline-block;"></i>
-    <span style="font-size: 13px;">${t.label}</span>
-  </div>
-`;
-  });
-    div.innerHTML += '<hr style="margin:5px 0;">';
-    div.innerHTML += '<small>Coordenação de Cartografia e Análise Espacial<br>CCAE/CIET/SEPLAN</small>';
-    return div;
+    // Div da legenda
+    const legendDiv = L.DomUtil.create('div', 'legend', container);
+    legendDiv.innerHTML = '<div style="text-align: center; font-weight: bold; margin-bottom: 5px;">Territórios de Desenvolvimento</div>';
+
+    territorioColors
+      .sort((a, b) => a.codigo - b.codigo)
+      .forEach(t => {
+        legendDiv.innerHTML += `
+          <div class="territorio-item" data-nome="${t.nome}" style="cursor:pointer; display: flex; align-items: center; gap: 6px; margin-bottom: 6px;">
+            <i style="background:${t.cor}; width:24px; height:24px; display:inline-block;"></i>
+            <span style="font-size: 13px;">${t.label}</span>
+          </div>
+        `;
+      });
+
+    legendDiv.innerHTML += '<hr style="margin:5px 0;">';
+    legendDiv.innerHTML += '<small>Coordenação de Cartografia e Análise Espacial<br>CCAE/CIET/SEPLAN</small>';
+
+    // Evento para recolher/expandir
+    toggleBtn.addEventListener('click', () => {
+      legendDiv.classList.toggle('collapsed');
+      toggleBtn.innerHTML = legendDiv.classList.contains('collapsed') ? "Mostrar legenda" : "Ocultar legenda";
+    });
+
+    return container;
   };
 
-  legend.addTo(map);
+  legendControl.addTo(map);
 
- 
-}
-setTimeout(() => {
-  document.querySelectorAll('.territorio-item').forEach(item => {
-    item.addEventListener('click', () => {
-      const nome = item.getAttribute('data-nome');
-      highlightTerritory(nome);
+  // Clique nos itens da legenda
+  setTimeout(() => {
+    document.querySelectorAll('.territorio-item').forEach(item => {
+      item.addEventListener('click', () => {
+        const nome = item.getAttribute('data-nome');
+        highlightTerritory(nome);
+      });
     });
-  });
-}, 300);
-
+  }, 300);
+}
 
     /* ========== Função Lat/Lon -> UTM ========== */
     function latLonToUTM(lat, lon) {
@@ -1336,6 +1433,59 @@ document.addEventListener('keydown', function (e) {
     territoriosLayer.eachLayer(layer => {
       territoriosLayer.resetStyle(layer); // volta para o estilo original
     });
+  }
+});
+// Centraliza o mapa no conjunto de dados carregados
+setTimeout(() => {
+  const group = new L.featureGroup([
+    territoriosLayer,
+    municipiosLayer
+  ]);
+  map.fitBounds(group.getBounds(), { padding: [20, 20] });
+}, 800);
+
+function ajustarMapa() {
+  document.getElementById('map').style.height = window.innerHeight + 'px';
+}
+
+window.addEventListener('resize', ajustarMapa);
+window.addEventListener('orientationchange', ajustarMapa);
+ajustarMapa();
+
+
+// === Controle da barra de pesquisa expansível ===
+const searchContainer = document.getElementById('searchContainer');
+const searchToggle = document.getElementById('searchToggle');
+const searchInputField = document.getElementById('searchMunicipio');
+
+searchToggle.addEventListener('click', () => {
+  searchContainer.classList.toggle('expanded');
+  if (searchContainer.classList.contains('expanded')) {
+    searchInputField.focus();
+  } else {
+    searchInputField.value = '';
+    document.getElementById('listaMunicipios').style.display = 'none';
+  }
+});
+
+// === Fecha a barra de pesquisa ao apertar ESC e volta para o ícone ===
+document.addEventListener('keydown', (e) => {
+  if (e.key === "Escape") {
+    // Se estiver expandida, recolhe para o ícone
+    if (searchContainer.classList.contains('expanded')) {
+      searchContainer.classList.remove('expanded');
+      searchInputField.value = '';
+      document.getElementById('listaMunicipios').style.display = 'none';
+    }
+  }
+});
+document.addEventListener('click', (e) => {
+  if (!searchContainer.contains(e.target)) {
+    if (searchContainer.classList.contains('expanded')) {
+      searchContainer.classList.remove('expanded');
+      searchInputField.value = '';
+      document.getElementById('listaMunicipios').style.display = 'none';
+    }
   }
 });
   </script>
