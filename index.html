@@ -256,7 +256,10 @@ html, body {
     .leaflet-control-layers {
       margin-top: 0px !important;
     }
-
+#camadasWrapper > .leaflet-control-layers {
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+}
     .leaflet-control-zoom {
       margin-top: 150px !important;
       margin-left: 10px !important;
@@ -384,6 +387,9 @@ path.leaflet-interactive:focus {
   }
 }
 
+.leaflet-control-layers.collapsed-panel {
+  display: none !important;
+}
 
   </style>
 </head>
@@ -1164,6 +1170,53 @@ litigioLayer.bringToFront();
   collapsed: false,
   position: 'topleft' // agora fica no canto superior esquerdo
 }).addTo(map);
+map.whenReady(() => {
+  const panel = document.querySelector('.leaflet-control-layers');
+  if (panel) {
+    // Aplica classe colapsada ao iniciar
+    panel.classList.add('collapsed-panel');
+
+    // Cria contêiner
+    const wrapper = document.createElement('div');
+    wrapper.id = 'camadasWrapper';
+    wrapper.style.position = 'absolute';
+    wrapper.style.top = '300px';
+    wrapper.style.left = '10px';
+    wrapper.style.zIndex = '3001';
+    wrapper.style.border = '1px solid #ccc';
+    wrapper.style.borderRadius = '6px';
+    wrapper.style.overflow = 'hidden';
+    wrapper.style.background = 'white';
+    wrapper.style.boxShadow = '0 2px 6px rgba(0,0,0,0.3)';
+
+    // Cria título
+    const header = document.createElement('div');
+    header.id = 'camadasHeader';
+    header.innerText = 'Visualizar Camadas';
+    header.style.background = '#007bff';
+    header.style.color = 'white';
+    header.style.padding = '6px 12px';
+    header.style.fontWeight = 'bold';
+    header.style.fontSize = '14px';
+    header.style.cursor = 'pointer';
+    header.style.userSelect = 'none';
+
+    // Piscar (igual Territórios)
+    header.classList.add('blink');
+
+    // Clique ativa painel e para piscar
+    header.addEventListener('click', () => {
+      panel.classList.toggle('collapsed-panel');
+      header.classList.remove('blink'); // para de piscar ao clicar
+    });
+
+    // Monta no DOM
+    wrapper.appendChild(header);
+    wrapper.appendChild(panel);
+    document.body.appendChild(wrapper);
+  }
+});
+
 
 // Ajusta espaçamento para não sobrepor a seta norte
 document.querySelector('.leaflet-control-layers').style.marginTop = '60px';
