@@ -569,7 +569,10 @@ const grupos = {
       if (feature.properties) {
         const popupContent = generateInfoContent(feature.properties) + 
           `<button class="download-btn" style="margin-top:5px;">Baixar KML desta feição</button>`;
-        layer.bindPopup(popupContent);
+        layer.on('click', function (e) {
+  map.panTo(e.latlng); // centraliza o ponto clicado
+  layer.bindPopup(popupContent).openPopup(e.latlng); // exibe popup
+});
 
         layer.on('popupopen', () => {
           const btn = document.querySelector('.download-btn');
