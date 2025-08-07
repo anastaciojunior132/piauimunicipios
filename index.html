@@ -365,10 +365,23 @@ path.leaflet-interactive:focus {
   50% { transform: scale(1.08); background-color: #0056b3; }
   100% { transform: scale(1); background-color: #007bff; }
 }
-/* Painel de camadas no canto superior direito */
 .leaflet-top.leaflet-right {
-  right: 1755px !important; /* distância da borda direita */
-  top: 50px !important;   /* distância do topo */
+  right: 10px !important;
+  top: 70px !important;
+}
+@media (max-width: 768px) {
+  .leaflet-control-layers {
+    font-size: 12px;
+    max-height: 200px;
+    overflow-y: auto;
+    right: 10px !important;
+    top: 60px !important;
+  }
+
+  .leaflet-control-layers-list {
+    max-height: 150px;
+    overflow-y: auto;
+  }
 }
 
 
@@ -959,26 +972,7 @@ resultados.sort((a, b) => a.nome.localeCompare(b.nome));
 
       listaMunicipios.style.display = 'block';
     });
-    searchInput.addEventListener('keydown', function(e) {
-  const itens = listaMunicipios.querySelectorAll('div');
-  if (e.key === 'ArrowDown') {
-    e.preventDefault();
-    if (highlightedIndex < itens.length - 1) {
-      highlightedIndex++;
-      updateHighlight(itens);
-    }
-  } else if (e.key === 'ArrowUp') {
-    e.preventDefault();
-    if (highlightedIndex > 0) {
-      highlightedIndex--;
-      updateHighlight(itens);
-    }
-  } else if (e.key === 'Enter') {
-    if (highlightedIndex >= 0 && highlightedIndex < currentResultados.length) {
-      itens[highlightedIndex].click();
-    }
-  }
-});
+   
 
 function updateHighlight(itens) {
   itens.forEach((item, index) => {
@@ -1168,7 +1162,7 @@ litigioLayer.bringToFront();
     };
  const layersControl = L.control.layers(baseMaps, overlayMaps, {
   collapsed: false,
-  position: 'topright' // coloca no canto superior direito
+  position: 'topleft' // agora fica no canto superior esquerdo
 }).addTo(map);
 
 // Ajusta espaçamento para não sobrepor a seta norte
